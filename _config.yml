@@ -1,5 +1,5 @@
 # Site settings
-title: 15-418 Final Project
+title: "Lambda++: Functional Sequence Library in C++"
 email: ananyak@andrew, jezimmer@andrew
 description: > # this means to ignore newlines until "baseurl:"
   Project page for our 15-418 final project for the Spring 2015 semester.
