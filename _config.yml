@@ -2,7 +2,9 @@
 title: "Lambda++: Functional Sequence Library in C++"
 email: ananyak@andrew, jezimmer@andrew
 description: > # this means to ignore newlines until "baseurl:"
-  Project page for our 15-418 final project for the Spring 2015 semester.
+  A parallel sequence library for C++ with support for operations like map,
+  reduce, and scan, which take higher order functions and automatically detects
+  hardware configurations to adapt performance.
 baseurl: "/lambda--" # the subpath of your site, e.g. /blog/
 url: "https://ananyakumar.github.io" # the base hostname & protocol for your site
 
