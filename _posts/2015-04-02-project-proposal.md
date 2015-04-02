@@ -154,4 +154,5 @@ Project milestones are listed by intended completion date.
 
 
 
+[^1]: http://devblogs.nvidia.com/parallelforall/cuda-7-release-candidate-feature-overview/
 [seq]: http://www.cs.cmu.edu/~15210/docs/sig/SEQUENCE.html
