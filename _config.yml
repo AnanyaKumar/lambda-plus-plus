@@ -1,0 +1,39 @@
+# Site settings
+title: 15-418 Final Project
+email: ananyak@andrew, jezimmer@andrew
+description: > # this means to ignore newlines until "baseurl:"
+  Project page for our 15-418 final project for the Spring 2015 semester.
+baseurl: "" # the subpath of your site, e.g. /blog/
+url: "https://ananyakumar.github.io" # the base hostname & protocol for your site
+
+exclude:
+  - README.md
+  - LICENSE
+  - Gemfile.lock
+  - Gemfile
+
+permalink: /:title/
+
+# Build settings
+markdown: redcarpet
+
+sass:
+  sass_dir: _sass
+  style: compressed
+
+redcarpet:
+  extensions:
+    - no_intra_emphasis
+    - tables
+    - fenced_code_blocks
+    - autolink
+    - disable_indented_code_blocks
+    - strikethrough
+    - footnotes
+    - with_toc_data
+    - smart
+
+# -- custom metadata --
+github_usernames:
+  - ananyakumar
+  - jez
