@@ -3,8 +3,8 @@ title: 15-418 Final Project
 email: ananyak@andrew, jezimmer@andrew
 description: > # this means to ignore newlines until "baseurl:"
   Project page for our 15-418 final project for the Spring 2015 semester.
-baseurl: "" # the subpath of your site, e.g. /blog/
-url: "http://ananyakumar.github.io" # the base hostname & protocol for your site
+baseurl: "/lambda--/" # the subpath of your site, e.g. /blog/
+url: "https://ananyakumar.github.io" # the base hostname & protocol for your site
 
 exclude:
   - README.md
