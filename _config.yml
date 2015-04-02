@@ -17,10 +17,6 @@ permalink: /:title/
 # Build settings
 markdown: redcarpet
 
-sass:
-  sass_dir: _sass
-  style: compressed
-
 redcarpet:
   extensions:
     - no_intra_emphasis
