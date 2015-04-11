@@ -11,7 +11,7 @@ functions. Our library will automatically detect hardware configurations and
 adapt its performance.
 
 
-# Background
+## Background
 
 Writing parallel programs is difficult. Challenges such as intelligently
 assigning work to nodes and minimizing communication costs makes it impossible
@@ -37,7 +37,7 @@ you'd want less of a dynamic assignment). This enables high performance across
 hardware configurations.
 
 
-# Challenges
+## Challenges
 
 The first challenge is designing a good API. Exposing cluster-level parallelism
 to a sequential program requires a strong understanding of the types of parallel
@@ -55,20 +55,20 @@ if communication costs are high). Effectively characterizing cluster properties
 requires an intimate understand of parallel architecture.
 
 
-# Resources
+## Resources
 
 We would like access to Amazon EC2 clusters if possible. Besides that, we will
 use Blacklight for testing.
 
 
-# Goals & Deliverables
+## Goals & Deliverables
 
 We've broken up our goals and deliverables into three sections: implementing a
 library of functions on sequences that take functions as arguments, using these
 library functions to write performant code, and finally analyzing how well we
 did compared with other parallel implementations.
 
-## Implement Functional Sequence Library
+### Implement Functional Sequence Library
 
 The first feature we plan to achieve is to implement a subset of the [`SEQUENCE`
 signature][seq] in C++ that supports higher-order functions. Users of this library
@@ -80,7 +80,7 @@ A feature we hope to achieve is to add more functions to this interface (like
 `rev`, `append`, `flatten`, etc.), in the hopes of making it easy and practical
 to write functional programs in C++.
 
-## Write Performant Code Using Lambda++
+### Write Performant Code Using Lambda++
 
 Having implemented the library functions themselves, the next feature we plan to
 achieve is to actually implement a number of algorithms using this set of
@@ -103,7 +103,7 @@ functions on sequences of data. Since the programmer will be limited in
 optimization potential by the library functions given, the burden of optimizing
 code performance falls to the implementation of the library itself.
 
-## Analyze Performance
+### Analyze Performance
 
 The final feature we plan to achieve is to provide an analysis of the
 performance of our code compared with the performance of widely-established
@@ -111,7 +111,7 @@ parallel algorithm implementations, for example those in the Problem-Based
 Benchmark Suite or the implementations we've seen in class.
 
 
-# Platform Choice
+## Platform Choice
 
 For the task of implementing a functional, parallel sequence library, we had a
 couple of options. The first was to choose a language that heavily supports the
@@ -130,7 +130,7 @@ parallelism will allow us to fine tune our communication patterns to adapt to
 different network topologies and communication costs.
 
 
-# Schedule
+## Schedule
 
 Project milestones are listed by intended completion date.
 
