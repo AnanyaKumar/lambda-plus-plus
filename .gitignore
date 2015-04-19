@@ -2,3 +2,5 @@
 _site/
 tags
 .*.sw[nop]
+*.o
+main
