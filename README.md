@@ -4,9 +4,13 @@ Description:
 We are going to build a parallel sequence library with support for operations like map, reduce, and scan. Our library should automatically detect hardware configurations and adapt its performance. For a sample program see main.cpp.
 
 Restrictions:
+
 Cluster::init(&argc, &argv) must be called before executing any other code. This sets up your cluster.
+
 Cluster::close() must be called at the end of all other code (before returning from main).
+
 Standard input/output functions should only be used for debugging purposes.
+
 You may not use non-deterministic functions (e.g. rand) outside of sequence code. Use equivalent functions from our library (to come in the future).
 
 Architecture notes:
