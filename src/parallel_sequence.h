@@ -48,14 +48,16 @@ public:
   }
 
   void initialize(int n) {
-    int numLeftOverElements = n % Cluster.procs;
-    int myLeftOver = Cluster.procId < numLeftOverElements;
-    int myNormalElements = n / Cluster.procs;
+    int size = n;
+    int myNormalElements = size / Cluster::procs;
+    int numLeftOverElements = size % Cluster::procs;
+    int myLeftOver = Cluster::procId < numLeftOverElements;
     numElements = myNormalElements + myLeftOver;
+    data = new T[numElements];
     if (myLeftOver) {
-      startIndex = Cluster.procId * (myNormalElements + 1);
+      startIndex = Cluster::procId * (myNormalElements + 1);
     } else {
-      startIndex = Cluster.procId * myNormalElements + numLeftOverElements;
+      startIndex = Cluster::procId * myNormalElements + numLeftOverElements;
     }
   }
 
@@ -67,7 +69,7 @@ public:
   }
 
   void transform (function<T(T)> mapper) {
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < numElements; i++) {
       data[i] = mapper(data[i]);
     }
   }
@@ -115,6 +117,7 @@ public:
       if (i % 10 == 9) cout << endl;
     }
     if (i % 10 != 9) cout << endl;
+    cout << endl;
   }
 };
 
