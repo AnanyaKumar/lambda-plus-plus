@@ -4,7 +4,7 @@
 #include "paren_match.h"
 
 #include "serial_sequence.h"
-#include "parellel_sequence.h"
+#include "parallel_sequence.h"
 
 #include "CycleTimer.h"
 
@@ -80,3 +80,6 @@ void test_paren_match(int n) {
   }
 }
 
+void hello() {
+  std::cout << "Hello, world!" << std::endl;
+}

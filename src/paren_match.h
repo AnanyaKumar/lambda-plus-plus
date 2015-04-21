@@ -6,4 +6,6 @@
 bool paren_match(Sequence<int> seq);
 void test_paren_match(int n);
 
+void hello();
+
 #endif
