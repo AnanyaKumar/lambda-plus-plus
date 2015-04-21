@@ -21,7 +21,6 @@ ifeq ($(mpi),)
 endif
 
 SRCS=\
-		 $(SRCDIR)/cluster.cpp\
 		 $(SRCDIR)/paren_match.cpp\
 		 $(SRCDIR)/mandelbrot.cpp\
      $(SRCDIR)/main.cpp\

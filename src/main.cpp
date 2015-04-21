@@ -1,6 +1,8 @@
 #include <iostream>
 #include <limits>
 
+#include <mpi.h>
+
 #include "sequence.h"
 
 // test implementations
@@ -10,7 +12,7 @@
 #include "CycleTimer.h"
 
 int main (int argc, char **argv) {
-  Cluster::init(&argc, &argv);
+  MPI_Init(&argc, &argv);
 
   // paren test
   test_paren_match(1000);
@@ -18,6 +20,6 @@ int main (int argc, char **argv) {
   // mandelbrot test
   void test_mandelbrot();
 
-  Cluster::close();
+  MPI_Finalize();
   return 0;
 }
