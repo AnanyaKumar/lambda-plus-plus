@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Project Proposal"
-date: Thu Apr  2 13:01:12 EDT 2015
+date: "Thu Apr  2 13:01:12 EDT 2015"
 ---
 
 
