@@ -21,8 +21,11 @@ ifeq ($(mpi),)
 endif
 
 SRCS=\
+		 $(SRCDIR)/cluster.cpp\
+		 $(SRCDIR)/paren_match.cpp\
+		 $(SRCDIR)/mandelbrot.cpp\
      $(SRCDIR)/main.cpp\
-		 $(SRCDIR)/paren_match.cpp
+
 
 OBJS=$(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 

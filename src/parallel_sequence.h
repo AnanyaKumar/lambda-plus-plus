@@ -1,6 +1,8 @@
 #ifndef _PARALLEL_SEQUENCE_H_
 #define _PARALLEL_SEQUENCE_H_
 
+#include <iostream>
+
 #include "sequence.h"
 
 using namespace std;

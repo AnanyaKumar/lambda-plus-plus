@@ -5,7 +5,7 @@
 #include "mandelbrot.h"
 
 #include "serial_sequence.h"
-#include "parellel_sequence.h"
+#include "parallel_sequence.h"
 
 #include "CycleTimer.h"
 
@@ -32,7 +32,7 @@ int mandel(float c_re, float c_im, int count) {
 // Do not call this function, except from within mandelbrot_serial or
 // mandelbrot_parallel. You should probably use one of these functions in your
 // code.
-Sequence<int> mandelbrot_helper(float x0, float y0,
+Sequence<int> *mandelbrot_helper(float x0, float y0,
                                 float x1, float y1,
                                 int width, int height,
                                 int max_iters, bool parallelize) {
@@ -52,10 +52,10 @@ Sequence<int> mandelbrot_helper(float x0, float y0,
   };
 
   if (parallelize) {
-    return ParallelSequence(mandel_idx, width * height);
+    return new ParallelSequence<int>(mandel_idx, width * height);
   }
   else {
-    return SerialSequence(mandel_idx, width * height);
+    return new SerialSequence<int>(mandel_idx, width * height);
   }
 }
 
@@ -65,14 +65,14 @@ Sequence<int> mandelbrot_helper(float x0, float y0,
  * We've created extra API functions wrapping a boolean parameter (like
  * parallelize) for maintainability down the road.
  */
-Sequence<int> mandelbrot_serial(float x0, float y0,
+Sequence<int> *mandelbrot_serial(float x0, float y0,
     float x1, float y1, int width, int height, int max_iters) {
   bool parallelize = false;
 
   return mandelbrot_helper(x0, y0, x1, y1, width, height,
       max_iters, parallelize);
 }
-Sequence<int> &mandelbrot_parallel(float x0, float y0,
+Sequence<int> *mandelbrot_parallel(float x0, float y0,
     float x1, float y1, int width, int height, int max_iters) {
   bool parallelize = true;
 
@@ -99,10 +99,12 @@ void test_mandelbrot() {
   double min_serial = 1e30;
   for (int i = 0; i < 3; ++i) {
     double start_time = CycleTimer::currentSeconds();
-    Sequence<int> seq = mandelbrot_serial(x0, y0, x1, y1, width,
+    Sequence<int> *seq = mandelbrot_serial(x0, y0, x1, y1, width,
         height, max_iters);
     double end_time = CycleTimer::currentSeconds();
     min_serial = std::min(min_serial, end_time - start_time);
+
+    delete seq;
   }
 
   printf("[mandelbrot serial]:\t\t[%.3f] ms\n", min_serial * 1000);
@@ -112,10 +114,12 @@ void test_mandelbrot() {
   double min_parallel = 1e30;
   for (int i = 0; i < 3; ++i) {
     double start_time = CycleTimer::currentSeconds();
-    Sequence<int> seq = mandelbrot_parallel(x0, y0, x1, y1, width,
+    Sequence<int> *seq = mandelbrot_parallel(x0, y0, x1, y1, width,
         height, max_iters);
     double end_time = CycleTimer::currentSeconds();
     min_parallel = std::min(min_parallel, end_time - start_time);
+
+    delete seq;
   }
 
   printf("[mandelbrot parallel]:\t\t[%.3f] ms\n", min_parallel * 1000);

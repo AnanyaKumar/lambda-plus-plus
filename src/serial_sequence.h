@@ -1,7 +1,7 @@
 #ifndef _SERIAL_SEQUENCE_H_
 #define _SERIAL_SEQUENCE_H_
 
-#include <functional>
+#include <iostream>
 
 #include "sequence.h"
 
@@ -73,13 +73,12 @@ public:
   }
 
   void print () {
-    cout << "Node " << (Cluster::procId+1) << "/" << Cluster::procs << ":" << endl;
     int i;
     for (i = 0; i < this->size; i++) {
-      cout << this->data[i] <<  " ";
-      if (i % 10 == 9) cout << endl;
+      std::cout << this->data[i] <<  " ";
+      if (i % 10 == 9) std::cout << std::endl;
     }
-    if (i % 10 != 9) cout << endl;
+    if (i % 10 != 9) std::cout << std::endl;
   }
 };
 
