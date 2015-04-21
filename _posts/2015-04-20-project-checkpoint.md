@@ -118,4 +118,5 @@ describing what we have accomplished.
     reference sequential implementation of the sequence library.
 
 As you can see, we're almost exactly where we anticipated we'd be at this point
-in the project.
+in the project. We doing plan on stopping now! We're super excited and looking
+forward to seeing this project through to completion.
