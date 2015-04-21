@@ -15,9 +15,9 @@ private:
 
 private:
   void initialize (int n) {
-    size = n;
-    int equalSplit = size / Cluster::procs;
-    int numLeftOverElements = size % Cluster::procs;
+    this->size = n;
+    int equalSplit = this->size / Cluster::procs;
+    int numLeftOverElements = this->size % Cluster::procs;
     int myLeftOver = Cluster::procId < numLeftOverElements;
     numElements = equalSplit + myLeftOver;
     if (myLeftOver) {
@@ -26,15 +26,15 @@ private:
       startIndex = Cluster::procId * equalSplit + numLeftOverElements;
     }
 
-    data = new T[numElements];
-    MPI_Win_create(data, numElements * sizeof(T), sizeof(T),
+    this->data = new T[numElements];
+    MPI_Win_create(this->data, numElements * sizeof(T), sizeof(T),
       MPI_INFO_NULL, MPI_COMM_WORLD, &data_window);
     MPI_Win_fence(0, data_window);
   }
 
   void destroy () {
-    if (size != 0) {
-      free(data);
+    if (this->size != 0) {
+      delete[] this->data;
     }
   }
 
@@ -43,8 +43,8 @@ private:
   }
 
   int getNodeWithData (int index) {
-    int equalSplit = size / Cluster::procs;
-    int numLeftOverElements = size % Cluster::procs;
+    int equalSplit = this->size / Cluster::procs;
+    int numLeftOverElements = this->size % Cluster::procs;
     int block = (equalSplit + 1) * numLeftOverElements;
     if (index < block) {
       return index / (equalSplit + 1);
@@ -54,8 +54,8 @@ private:
   }
 
   int getDataDisp (int index) {
-    int equalSplit = size / Cluster::procs;
-    int numLeftOverElements = size % Cluster::procs;
+    int equalSplit = this->size / Cluster::procs;
+    int numLeftOverElements = this->size % Cluster::procs;
     int block = (equalSplit + 1) * numLeftOverElements;
     if (index < block) {
       return index % (equalSplit + 1);
@@ -70,9 +70,9 @@ private:
 
   T *getPartialReduces (function<T(T,T)> combiner) {
     // TODO: Consider possibly faster ways of transfering data
-    T myValue = data[0]; // TODO: what if there are 0 elements?
+    T myValue = this->data[0]; // TODO: what if there are 0 elements?
     for (int i = 1; i < numElements; i++) {
-      myValue = combiner(myValue, data[i]);
+      myValue = combiner(myValue, this->data[i]);
     }
     MPI_Barrier(MPI_COMM_WORLD); // Is the barrier necessary?
 
@@ -103,7 +103,7 @@ public:
   ParallelSequence (T *array, int n) {
     initialize(n);
     for (int i = 0; i < numElements; i++) {
-      data[i] = array[startIndex + i];
+      this->data[i] = array[startIndex + i];
     }
     endMethod();
   }
@@ -111,7 +111,7 @@ public:
   ParallelSequence (function<T(int)> generator, int n) {
     initialize(n);
     for (int i = 0; i < numElements; i++) {
-      data[i] = generator(startIndex + i);
+      this->data[i] = generator(startIndex + i);
     }
     endMethod();
   }
@@ -122,7 +122,7 @@ public:
 
   void transform (function<T(T)> mapper) {
     for (int i = 0; i < numElements; i++) {
-      data[i] = mapper(data[i]);
+      this->data[i] = mapper(this->data[i]);
     }
     endMethod();
   }
@@ -158,9 +158,9 @@ public:
     }
 
     // Apply the scan to elements in the current node
-    data[0] = combiner(scan, data[0]);
+    this->data[0] = combiner(scan, this->data[0]);
     for (int i = 1; i < numElements; i++) {
-      data[i] = combiner(data[i-1], data[i]);
+      this->data[i] = combiner(this->data[i-1], this->data[i]);
     }
 
     free(recvbuf);
@@ -169,12 +169,12 @@ public:
   T get (int index) {
     T value;
     if (Cluster::procId == 0) {
-      value = data[index - startIndex];
+      value = this->data[index - startIndex];
     } else {
-      MPI_Get(&value, sizeof(T), MPI_BYTE, getNodeWithData(index), getDataDisp(index), 
+      MPI_Get(&value, sizeof(T), MPI_BYTE, getNodeWithData(index), getDataDisp(index),
         sizeof(T), MPI_BYTE, data_window);
     }
-    MPI_Win_fence(0, data_window); 
+    MPI_Win_fence(0, data_window);
     return value;
   }
 
@@ -186,7 +186,7 @@ public:
     cout << "Node " << (Cluster::procId+1) << "/" << Cluster::procs << ":" << endl;
     int i;
     for (i = 0; i < numElements; i++) {
-      cout << data[i] <<  " ";
+      cout << this->data[i] <<  " ";
       if (i % 10 == 9) cout << endl;
     }
     if (i % 10 != 9) cout << endl;
