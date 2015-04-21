@@ -48,7 +48,7 @@ class Sequence
     } else {
       startIndex = Cluster::procId * equalSplit + numLeftOverElements;
     }
-    
+
     data = new T[numElements];
     MPI_Win_create(data, numElements * sizeof(T), sizeof(T), 
       MPI_INFO_NULL, MPI_COMM_WORLD, &data_window);
@@ -56,8 +56,9 @@ class Sequence
   }
 
   void destroy () {
-    // Destroy stuff
-    // Probably need to case on whether we've created stuff
+    if (size != 0) {
+      free(data);
+    }
   }
 
   bool isMine (int index) {
@@ -90,6 +91,37 @@ class Sequence
     MPI_Barrier(MPI_COMM_WORLD);
   }
 
+  T *getPartialReduces (function<T(T,T)> combiner) {
+    // TODO: Consider possibly faster ways of transfering data
+    T myValue = data[0]; // TODO: what if there are 0 elements?
+    for (int i = 1; i < numElements; i++) {
+      myValue = combiner(myValue, data[i]);
+    }
+    MPI_Barrier(MPI_COMM_WORLD); // Is the barrier necessary?
+
+    T *recvbuf;
+    int *recvcounts;
+    int *displs;
+    recvbuf = new T[Cluster::procs];
+    recvcounts = new T[Cluster::procs];
+    displs = new T[Cluster::procs];
+
+    recvcounts[0] = sizeof(T);
+    displs[0] = 0;
+    for (int i = 1; i < Cluster::procs; i++) {
+      recvcounts[i] = sizeof(T);
+      displs[i] = displs[i-1] + sizeof(T);
+    }
+
+    MPI_Allgatherv(&myValue, sizeof(T), MPI_BYTE, recvbuf, recvcounts,
+      displs, MPI_BYTE, MPI_COMM_WORLD);
+
+    free(recvcounts);
+    free(displs);
+
+    return recvbuf;
+  }
+
 public:
   Sequence () {
     size = 0;
@@ -111,6 +143,10 @@ public:
     endMethod();
   }
 
+  ~Sequence() {
+    destroy();
+  }
+
   void transform (function<T(T)> mapper) {
     for (int i = 0; i < numElements; i++) {
       data[i] = mapper(data[i]);
@@ -118,31 +154,35 @@ public:
     endMethod();
   }
 
-  // template<typename S> 
-  // Sequence<S> map (function<S(T)> mapper) {
-  //   Sequence S = new Sequence;
-  //   auto tabulateFunction = [&](int index) {
-  //     return mapper(this.get(index));
-  //   };
-  //   S.tabulate(tabulateFunction, size);
-  //   return S;
-  // }
+  T reduce (function<T(T,T)> combiner, T init) {
+    T *recvbuf = getPartialReduces(combiner);
 
-  // T reduce (function<T(T,T)> combiner, T init) {
-  //   T value = init;
-  //   for (int i = 0; i < size; i++) {
-  //     value = combiner(value, data[i]);
-  //   }
-  //   return value;
-  // }
+    // Compute the final answer
+    T value = init;
+    for (int i = 0; i < Cluster::procs; i++) {
+      value = combiner(value, recvbuf[i]);
+    }
+    
+    free(recvbuf);
+    return value;
+  }
 
   void scan (function<T(T,T)> combiner, T init) {
-    if (size > 0) {
-      data[0] = combiner(init, data[0]);
+    T *recvbuf = getPartialReduces(combiner);
+
+    // Get the combination of all values before values in current node
+    T scan = init;
+    for (int i = 0; i < Cluster::procId; i++) {
+      scan = combiner(scan, recvbuf[i]);
     }
-    for (int i = 1; i < size; i++) {
+
+    // Apply the scan to elements in the current node
+    data[0] = combiner(scan, data[0]);
+    for (int i = 1; i < numElements; i++) {
       data[i] = combiner(data[i-1], data[i]);
     }
+
+    free(recvbuf);
   }
 
   T get (int index) {
@@ -156,12 +196,6 @@ public:
     MPI_Win_fence(0, data_window); 
     return value;
   }
-
-  // void set (int index, T value) {
-  //   if (isMine(index)) {
-  //     data[index - startIndex] = value;
-  //   }
-  // }
 
   void print () {
     cout << "Node " << (Cluster::procId+1) << "/" << Cluster::procs << ":" << endl;

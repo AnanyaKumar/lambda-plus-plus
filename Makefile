@@ -22,6 +22,7 @@ endif
 
 SRCS=\
      $(SRCDIR)/main.cpp
+#		 $(SRCDIR)/paren_match.cpp
 
 OBJS=$(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 
