@@ -1,6 +1,11 @@
 #ifndef _SEQUENCE_H_
 #define _SEQUENCE_H_
 
+#include <functional>
+#include <mpi.h>
+
+using namespace std;
+
 namespace Cluster {
   // Information about this node
   int procs;
@@ -35,19 +40,21 @@ protected:
   int size;
 
 public:
-  Sequence (T *array, int n) = 0;
-  Sequence (function<T(int)> generator, int n) = 0;
+  Sequence<T> (T *array, int n) = 0;
+  Sequence<T> (function<T(int)> generator, int n) = 0;
 
-  void transform(function<T(T)> mapper) = 0;
+  void transform(function<T(T)> mapper);
 
   template<typename S>
-  Sequence<S> map(function<S(T)> mapper) = 0;
+  Sequence<S> map(function<S(T)> mapper);
 
-  T reduce (function<T(T,T)> combiner, T init) = 0;
-  void scan (function<T(T,T)> combiner, T init) = 0;
+  T reduce (function<T(T,T)> combiner, T init);
+  void scan (function<T(T,T)> combiner, T init);
 
-  T get (int index) = 0;
-  void set (int index, T value) = 0;
+  T get (int index);
+  void set (int index, T value);
 
-  void print () = 0;
+  void print ();
 };
+
+#endif

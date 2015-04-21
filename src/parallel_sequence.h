@@ -1,15 +1,12 @@
 #ifndef _PARALLEL_SEQUENCE_H_
 #define _PARALLEL_SEQUENCE_H_
 
-#include <functional>
-#include <mpi.h>
-
 #include "sequence.h"
 
 using namespace std;
 
 template<typename T>
-class ParallelSequence : public Sequence
+class ParallelSequence: public Sequence<T>
 {
 private:
   int startIndex; // data is inclusive of the element at startIndex
@@ -18,7 +15,7 @@ private:
 
 private:
   void initialize (int n) {
-    int size = n;
+    size = n;
     int equalSplit = size / Cluster::procs;
     int numLeftOverElements = size % Cluster::procs;
     int myLeftOver = Cluster::procId < numLeftOverElements;

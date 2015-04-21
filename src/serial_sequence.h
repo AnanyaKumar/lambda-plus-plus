@@ -2,7 +2,6 @@
 #define _SERIAL_SEQUENCE_H_
 
 #include <functional>
-#include <mpi.h>
 
 #include "sequence.h"
 
@@ -10,7 +9,7 @@ using namespace std;
 
 
 template<typename T>
-class SerialSequence : public Sequence
+class SerialSequence : public Sequence<T>
 {
 public:
   SerialSequence (T *array, int n) {

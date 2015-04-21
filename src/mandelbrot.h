@@ -13,6 +13,6 @@ Sequence<int> mandelbrot_parallel(float x0, float y0,
                                   int width, int height,
                                   int max_iters) {
 
-void test_mandelbrot(int n);
+void test_mandelbrot();
 
 #endif
