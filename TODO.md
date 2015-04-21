@@ -11,3 +11,18 @@
   - write hardware autoconfig
   - fine tune applications of Sequence library
   - fine tune implementation of Sequence library
+
+
+## Refactor Sequence implementation
+
+We should refactor the Sequence implementation according to the following
+inheritance scheme:
+
+- `class Sequence` (abstract class, like
+  <http://www.tutorialspoint.com/cplusplus/cpp_interfaces.htm>)
+  - Files: `sequence.h`
+- `class ParallelSequence` extends Sequence
+  - `parallel_sequence.{h,cpp}`
+- `class SerialSequence` extends Sequence
+  - `serial_sequence.{h,cpp}`
+
