@@ -3,7 +3,7 @@
 
 #include "sequence.h"
 
-bool paren_match(Sequence<int> seq);
+bool paren_match(Sequence<int> &seq);
 void test_paren_match(int n);
 
 void hello();

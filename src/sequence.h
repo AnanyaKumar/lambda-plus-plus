@@ -40,21 +40,22 @@ protected:
   int size;
 
 public:
-  Sequence<T> (T *array, int n) = 0;
-  Sequence<T> (function<T(int)> generator, int n) = 0;
-
-  void transform(function<T(T)> mapper);
+  virtual void transform(function<T(T)> mapper) = 0;
 
   template<typename S>
   Sequence<S> map(function<S(T)> mapper);
 
-  T reduce (function<T(T,T)> combiner, T init);
-  void scan (function<T(T,T)> combiner, T init);
+  virtual T reduce (function<T(T,T)> combiner, T init) = 0;
+  virtual void scan (function<T(T,T)> combiner, T init) = 0;
 
-  T get (int index);
-  void set (int index, T value);
+  virtual T get (int index) = 0;
+  virtual void set (int index, T value) = 0;
 
-  void print ();
+  int length() {
+    return size;
+  }
+
+  virtual void print () = 0;
 };
 
 #endif

@@ -72,7 +72,7 @@ Sequence<int> mandelbrot_serial(float x0, float y0,
   return mandelbrot_helper(x0, y0, x1, y1, width, height,
       max_iters, parallelize);
 }
-Sequence<int> mandelbrot_parallel(float x0, float y0,
+Sequence<int> &mandelbrot_parallel(float x0, float y0,
     float x1, float y1, int width, int height, int max_iters) {
   bool parallelize = true;
 

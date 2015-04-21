@@ -1,5 +1,7 @@
 #include <iostream>
 #include <limits>
+#include <functional>
+#include <vector>
 
 #include "paren_match.h"
 
@@ -12,14 +14,14 @@
  * Test if a sequence of 1's or -1's is "matched", treating 1's as open parens
  * and -1's as close parens.
  */
-bool paren_match(Sequence<int> seq) {
+bool paren_match(Sequence<int> &seq) {
   auto plus = [](int a, int b) {
     return a + b;
   };
 
   auto min = [](int a, int b) {
     return a < b ? a : b;
-  }
+  };
 
   // in memory scan
   seq.scan(plus, 0);
@@ -34,30 +36,32 @@ bool paren_match(Sequence<int> seq) {
  * those sequences, and reports results
  */
 void test_paren_match(int n) {
-  auto generators[4];
+  std::vector<std::function<int(int)>> generators;
   bool expecteds[4];
 
   // ()()()()()()...
-  generators[0] = [](int i) { return i % 2 == 0 ? 1 : -1; };
+  generators.push_back([](int i) { return i % 2 == 0 ? 1 : -1; });
   expecteds[0]  = true;
   // (((((...)))))
-  generators[1] = [=](int i) { return i <= n / 2 ? 1 : -1; };
+  generators.push_back([=](int i) { return i <= n / 2 ? 1 : -1; });
   expecteds[1]  = true;
   // )()()()()()(...
-  generators[2] = [](int i) { return i % 2 == 0 ? -1 : 1; };
+  generators.push_back([](int i) { return i % 2 == 0 ? -1 : 1; });
   expecteds[2]  = false;
   // )))))...(((((
-  generators[3] = [=](int i) { return i <= n / 2 ? -1 : 1; };
+  generators.push_back([=](int i) { return i <= n / 2 ? -1 : 1; });
   expecteds[3]  = false;
+
 
   // ----- Run tests -----
   double start_time, total_time_serial, total_time_parallel;
   std::string result;
+  bool rc;
   for (int i = 0; i < 4; i++) {
     // ----- Serial test -----
     start_time = CycleTimer::currentSeconds();
-    Sequence<int> seq = SerialSequence(generators[i], SEQ_LEN);
-    bool rc = paren_match(seq);
+    SerialSequence<int> seq1 = SerialSequence<int>(generators[i], n);
+    rc = paren_match(seq1);
     total_time_serial = CycleTimer::currentSeconds() - start_time;
 
     result = rc == expecteds[i] ? "PASS" : "FAIL";
@@ -66,8 +70,8 @@ void test_paren_match(int n) {
 
     // ----- Parallel test -----
     start_time = CycleTimer::currentSeconds();
-    Sequence<int> seq = ParallelSequence(generators[i], SEQ_LEN);
-    bool rc = paren_match(seq);
+    ParallelSequence<int> seq2 = ParallelSequence<int>(generators[i], n);
+    rc = paren_match(seq2);
     total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
     result = rc == expecteds[i] ? "PASS" : "FAIL";
