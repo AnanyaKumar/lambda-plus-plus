@@ -1,6 +1,6 @@
 #include <iostream>
 #include <functional>
-#include "sequence.h"
+#include "parallel_sequence.h"
 using namespace std;
 
 int main (int argc, char **argv) {
@@ -15,9 +15,9 @@ int main (int argc, char **argv) {
   };
   constant *= 2; // Doesn't affect the function square 
 
-  Sequence<int> s(A, 3);
-  s.transform(square);
-  s.print();
+  // Sequence<int> s(A, 3);
+  // s.transform(square);
+  // s.print();
 
   // Identity mapper
   auto identity = [](int index) {
@@ -29,11 +29,12 @@ int main (int argc, char **argv) {
     return a + b;
   };
 
-  Sequence<int> s2;
-  s2.tabulate(identity, 1000);
-  s2.transform(square);
-  int s2sum = s2.reduce(summer, 0);
-  cout << s2sum << endl;
+  Sequence<int> s2(identity, 100);
+  // s2.transform(square);
+  s2.print();
+  cout << "Get: " << s2.get(5) << endl;
+  // int s2sum = s2.reduce(summer, 0);
+  // cout << s2sum << endl;
 
   Cluster::close();
   return 0;
