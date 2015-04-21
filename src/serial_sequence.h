@@ -1,43 +1,19 @@
-#ifndef SEQUENCE_H
-#define SEQUENCE_H
+#ifndef _SERIAL_SEQUENCE_H_
+#define _SERIAL_SEQUENCE_H_
 
 #include <functional>
 #include <mpi.h>
+
+#include "sequence.h"
+
 using namespace std;
 
-namespace Cluster {
-  // Information about this node
-  int procs;
-  int procId;
-
-  // TODO: Add static information about the cluster
-
-  void init (int *argc, char ***argv) {
-    MPI_Init(argc, argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &procs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &procId);
-  }
-
-  void close () {
-    MPI_Finalize();
-  }
-};
 
 template<typename T>
-class Sequence
+class SerialSequence : public Sequence
 {
-  // Data stored by the current node
-  T* data;
-
-  // Common information about the Sequence
-  int size;
-
 public:
-  Sequence () {
-    size = 0;
-  }
-
-  Sequence (T *array, int n) {
+  SerialSequence (T *array, int n) {
     size = n;
     data = new T[size];
     for (int i = 0; i < size; i++) {
@@ -45,12 +21,16 @@ public:
     }
   }
 
-  void tabulate (function<T(int)> generator, int n) {
+  SerialSequence (function<T(int)> generator, int n) {
     size = n;
-    data = new T[n];
-    for (int i = 0; i < n; i++) {
+    data = new T[size];
+    for (int i = 0; i < size; i++) {
       data[i] = generator(i);
     }
+  }
+
+  ~SerialSequence() {
+    delete [] data;
   }
 
   void transform (function<T(T)> mapper) {
@@ -59,13 +39,12 @@ public:
     }
   }
 
-  template<typename S> 
-  Sequence<S> map(function<S(T)> mapper) {
-    Sequence S = new Sequence;
+  template<typename S>
+  SerialSequence<S> map(function<S(T)> mapper) {
     auto tabulateFunction = [&](int index) {
       return mapper(this.get(index));
     };
-    S.tabulate(tabulateFunction, size);
+    SerialSequence<S> seq = new SerialSequence<S>(tabulateFunction, size);
     return S;
   }
 

@@ -1,42 +1,22 @@
-#ifndef SEQUENCE_H
-#define SEQUENCE_H
+#ifndef _PARALLEL_SEQUENCE_H_
+#define _PARALLEL_SEQUENCE_H_
 
 #include <functional>
 #include <mpi.h>
+
+#include "sequence.h"
+
 using namespace std;
 
-namespace Cluster {
-  // Information about this node
-  int procs;
-  int procId;
-
-  // TODO: Add static information about the cluster
-
-  void init (int *argc, char ***argv) {
-    MPI_Init(argc, argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &procs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &procId);
-  }
-
-  void close () {
-    MPI_Finalize();
-  }
-};
-
 template<typename T>
-class Sequence
+class ParallelSequence : public Sequence
 {
-  // Data stored by the current node
-  T* data;
+private:
   int startIndex; // data is inclusive of the element at startIndex
   int numElements;
   MPI_Win data_window; // gives nodes access to each others' data
 
-  // Common information about the Sequence
-  int size;
-
-  // Private functions
-
+private:
   void initialize (int n) {
     int size = n;
     int equalSplit = size / Cluster::procs;
@@ -50,9 +30,9 @@ class Sequence
     }
 
     data = new T[numElements];
-    MPI_Win_create(data, numElements * sizeof(T), sizeof(T), 
+    MPI_Win_create(data, numElements * sizeof(T), sizeof(T),
       MPI_INFO_NULL, MPI_COMM_WORLD, &data_window);
-    MPI_Win_fence(0, data_window); 
+    MPI_Win_fence(0, data_window);
   }
 
   void destroy () {
@@ -123,11 +103,7 @@ class Sequence
   }
 
 public:
-  Sequence () {
-    size = 0;
-  }
-
-  Sequence (T *array, int n) {
+  ParallelSequence (T *array, int n) {
     initialize(n);
     for (int i = 0; i < numElements; i++) {
       data[i] = array[startIndex + i];
@@ -135,7 +111,7 @@ public:
     endMethod();
   }
 
-  Sequence (function<T(int)> generator, int n) {
+  ParallelSequence (function<T(int)> generator, int n) {
     initialize(n);
     for (int i = 0; i < numElements; i++) {
       data[i] = generator(startIndex + i);
@@ -143,7 +119,7 @@ public:
     endMethod();
   }
 
-  ~Sequence() {
+  ~ParallelSequence() {
     destroy();
   }
 
@@ -154,6 +130,14 @@ public:
     endMethod();
   }
 
+  template<typename S>
+  ParallelSequence<S> map(function<S(T)> mapper) {
+    auto nop [](int _) {
+      return 42;
+    };
+    return ParallelSequence<S>(nop, 0);
+  }
+
   T reduce (function<T(T,T)> combiner, T init) {
     T *recvbuf = getPartialReduces(combiner);
 
@@ -162,7 +146,7 @@ public:
     for (int i = 0; i < Cluster::procs; i++) {
       value = combiner(value, recvbuf[i]);
     }
-    
+
     free(recvbuf);
     return value;
   }
@@ -195,6 +179,10 @@ public:
     }
     MPI_Win_fence(0, data_window); 
     return value;
+  }
+
+  void set (int index, T value) {
+    return;
   }
 
   void print () {
