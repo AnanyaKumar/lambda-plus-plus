@@ -5,31 +5,27 @@
 #include <mpi.h>
 
 #include "sequence.h"
+#include "cluster.h"
 
 using namespace std;
 
 template<typename T>
 class ParallelSequence: public Sequence<T>
 {
-private:
-  int procs;
-  int procId;
-
   int startIndex; // data is inclusive of the element at startIndex
   int numElements;
   MPI_Win data_window; // gives nodes access to each others' data
 
-private:
   void initialize (int n) {
     this->size = n;
-    int equalSplit = this->size / procs;
-    int numLeftOverElements = this->size % procs;
-    int myLeftOver = procId < numLeftOverElements;
+    int equalSplit = this->size / Cluster::procs;
+    int numLeftOverElements = this->size % Cluster::procs;
+    int myLeftOver = Cluster::procId < numLeftOverElements;
     numElements = equalSplit + myLeftOver;
     if (myLeftOver) {
-      startIndex = procId * (equalSplit + 1);
+      startIndex = Cluster::procId * (equalSplit + 1);
     } else {
-      startIndex = procId * equalSplit + numLeftOverElements;
+      startIndex = Cluster::procId * equalSplit + numLeftOverElements;
     }
 
     this->data = new T[numElements];
@@ -42,6 +38,7 @@ private:
     if (this->size != 0) {
       delete[] this->data;
     }
+    MPI_Win_free(&data_window);
   }
 
   bool isMine (int index) {
@@ -49,8 +46,8 @@ private:
   }
 
   int getNodeWithData (int index) {
-    int equalSplit = this->size / procs;
-    int numLeftOverElements = this->size % procs;
+    int equalSplit = this->size / Cluster::procs;
+    int numLeftOverElements = this->size % Cluster::procs;
     int block = (equalSplit + 1) * numLeftOverElements;
     if (index < block) {
       return index / (equalSplit + 1);
@@ -60,8 +57,8 @@ private:
   }
 
   int getDataDisp (int index) {
-    int equalSplit = this->size / procs;
-    int numLeftOverElements = this->size % procs;
+    int equalSplit = this->size / Cluster::procs;
+    int numLeftOverElements = this->size % Cluster::procs;
     int block = (equalSplit + 1) * numLeftOverElements;
     if (index < block) {
       return index % (equalSplit + 1);
@@ -85,13 +82,13 @@ private:
     T *recvbuf;
     int *recvcounts;
     int *displs;
-    recvbuf = new T[procs];
-    recvcounts = new T[procs];
-    displs = new T[procs];
+    recvbuf = new T[Cluster::procs];
+    recvcounts = new T[Cluster::procs];
+    displs = new T[Cluster::procs];
 
     recvcounts[0] = sizeof(T);
     displs[0] = 0;
-    for (int i = 1; i < procs; i++) {
+    for (int i = 1; i < Cluster::procs; i++) {
       recvcounts[i] = sizeof(T);
       displs[i] = displs[i-1] + sizeof(T);
     }
@@ -107,9 +104,6 @@ private:
 
 public:
   ParallelSequence (T *array, int n) {
-    MPI_Comm_size(MPI_COMM_WORLD, procs);
-    MPI_Comm_rank(MPI_COMM_WORLD, procId);
-
     initialize(n);
     for (int i = 0; i < numElements; i++) {
       this->data[i] = array[startIndex + i];
@@ -149,7 +143,7 @@ public:
 
     // Compute the final answer
     T value = init;
-    for (int i = 0; i < procs; i++) {
+    for (int i = 0; i < Cluster::procs; i++) {
       value = combiner(value, recvbuf[i]);
     }
 
@@ -162,7 +156,7 @@ public:
 
     // Get the combination of all values before values in current node
     T scan = init;
-    for (int i = 0; i < procId; i++) {
+    for (int i = 0; i < Cluster::procId; i++) {
       scan = combiner(scan, recvbuf[i]);
     }
 
@@ -177,12 +171,8 @@ public:
 
   T get (int index) {
     T value;
-    if (procId == 0) {
-      value = this->data[index - startIndex];
-    } else {
-      MPI_Get(&value, sizeof(T), MPI_BYTE, getNodeWithData(index), getDataDisp(index),
-        sizeof(T), MPI_BYTE, data_window);
-    }
+    MPI_Get(&value, sizeof(T), MPI_BYTE, getNodeWithData(index), getDataDisp(index),
+      sizeof(T), MPI_BYTE, data_window);
     MPI_Win_fence(0, data_window);
     return value;
   }
@@ -192,7 +182,7 @@ public:
   }
 
   void print () {
-    cout << "Node " << (procId+1) << "/" << procs << ":" << endl;
+    cout << "Node " << (Cluster::procId + 1) << "/" << Cluster::procs << ":" << endl;
     int i;
     for (i = 0; i < numElements; i++) {
       cout << this->data[i] <<  " ";
@@ -200,6 +190,7 @@ public:
     }
     if (i % 10 != 9) cout << endl;
     cout << endl;
+    endMethod();
   }
 };
 

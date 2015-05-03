@@ -20,10 +20,10 @@ ifeq ($(mpi),)
   $(error "mpic++ not found - did you set your environment variables or load the module?")
 endif
 
-SRCS=\
+SRCS=$(SRCDIR)/main.cpp\
+		 $(SRCDIR)/cluster.cpp\
 		 $(SRCDIR)/paren_match.cpp\
 		 $(SRCDIR)/mandelbrot.cpp\
-     $(SRCDIR)/main.cpp\
 
 
 OBJS=$(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))

@@ -23,11 +23,9 @@ bool paren_match(Sequence<int> &seq) {
     return a < b ? a : b;
   };
 
-  // in memory scan
   seq.scan(plus, 0);
 
   int int_max = std::numeric_limits<int>::max();
-  // TODO: Need length function
   return seq.get(seq.length() - 1) == 0 && seq.reduce(min, int_max) >= 0;
 }
 
@@ -43,7 +41,7 @@ void test_paren_match(int n) {
   generators.push_back([](int i) { return i % 2 == 0 ? 1 : -1; });
   expecteds[0]  = true;
   // (((((...)))))
-  generators.push_back([=](int i) { return i <= n / 2 ? 1 : -1; });
+  generators.push_back([=](int i) { return i < n / 2 ? 1 : -1; });
   expecteds[1]  = true;
   // )()()()()()(...
   generators.push_back([](int i) { return i % 2 == 0 ? -1 : 1; });
@@ -65,8 +63,10 @@ void test_paren_match(int n) {
     total_time_serial = CycleTimer::currentSeconds() - start_time;
 
     result = rc == expecteds[i] ? "PASS" : "FAIL";
-    std::cout << "[" << result << "] Test " << i << " (parallel): "
-      << total_time_serial << std::endl;
+    if (Cluster::procId == 1) {
+      std::cout << "[" << result << "] Test " << i << " (sequential): "
+        << total_time_serial << std::endl;
+    }
 
     // ----- Parallel test -----
     start_time = CycleTimer::currentSeconds();
@@ -75,12 +75,16 @@ void test_paren_match(int n) {
     total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
     result = rc == expecteds[i] ? "PASS" : "FAIL";
-    std::cout << "[" << result << "] Test " << i << " (parallel): "
-      << total_time_parallel << std::endl;
+    if (Cluster::procId == 1) {
+      std::cout << "[" << result << "] Test " << i << " (parallel): "
+        << total_time_parallel << std::endl;
+      }
 
     // ----- Speedup -----
-    std::cout << "Speedup: "
-      << total_time_serial / total_time_parallel << std::endl;
+    if (Cluster::procId == 1) {
+      std::cout << "Speedup: "
+        << total_time_serial / total_time_parallel << std::endl;
+    }
   }
 }
 

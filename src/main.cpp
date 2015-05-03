@@ -1,25 +1,39 @@
 #include <iostream>
 #include <limits>
-
-#include <mpi.h>
-
-#include "sequence.h"
+#include <cassert>
 
 // test implementations
 #include "paren_match.h"
-#include "mandelbrot.h"
+// #include "mandelbrot.h"
+#include "parallel_sequence.h"
+#include "serial_sequence.h"
+#include "cluster.h"
 
 #include "CycleTimer.h"
 
 int main (int argc, char **argv) {
-  MPI_Init(&argc, &argv);
+  Cluster::init(&argc, &argv);
 
   // paren test
-  test_paren_match(1000);
+  test_paren_match(100000000);
 
   // mandelbrot test
-  void test_mandelbrot();
+  // test_mandelbrot();
 
-  MPI_Finalize();
+  // auto identity = [](int i) { return i; };
+
+  // ParallelSequence<int> *s = new ParallelSequence<int>(identity, 100);
+  // s->set(5, 2);  
+  // cout << s->get(99) << endl;
+
+  // auto combiner = [](int x, int y) { return x + y; };
+  // s->scan(combiner, 0);
+  // s->print();
+  // delete s;
+
+  // ParallelSequence<int> s2(identity, 1000);
+  // s2.print();
+
+  Cluster::close();
   return 0;
 }
