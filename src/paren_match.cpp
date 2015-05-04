@@ -63,7 +63,7 @@ void test_paren_match(int n) {
     total_time_serial = CycleTimer::currentSeconds() - start_time;
 
     result = rc == expecteds[i] ? "PASS" : "FAIL";
-    if (Cluster::procId == 1) {
+    if (Cluster::procId == 0) {
       std::cout << "[" << result << "] Test " << i << " (sequential): "
         << total_time_serial << std::endl;
     }
@@ -75,13 +75,13 @@ void test_paren_match(int n) {
     total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
     result = rc == expecteds[i] ? "PASS" : "FAIL";
-    if (Cluster::procId == 1) {
+    if (Cluster::procId == 0) {
       std::cout << "[" << result << "] Test " << i << " (parallel): "
         << total_time_parallel << std::endl;
       }
 
     // ----- Speedup -----
-    if (Cluster::procId == 1) {
+    if (Cluster::procId == 0) {
       std::cout << "Speedup: "
         << total_time_serial / total_time_parallel << std::endl;
     }
