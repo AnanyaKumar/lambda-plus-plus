@@ -39,6 +39,8 @@ class ParallelSequence: public Sequence<T>
       delete[] this->data;
     }
     MPI_Win_free(&data_window);
+
+    cout << "Called destroy" << endl;
   }
 
   bool isMine (int index) {
@@ -171,18 +173,23 @@ public:
 
   T get (int index) {
     T value;
-    MPI_Get(&value, sizeof(T), MPI_BYTE, getNodeWithData(index), getDataDisp(index),
-      sizeof(T), MPI_BYTE, data_window);
+    MPI_Get(&value, sizeof(T), MPI_BYTE, getNodeWithData(index),
+        getDataDisp(index), sizeof(T), MPI_BYTE, data_window);
+
     MPI_Win_fence(0, data_window);
     return value;
   }
 
   void set (int index, T value) {
-    return;
+    MPI_Put(&value, sizeof(T), MPI_BYTE, getNodeWithData(index),
+        getDataDisp(index), sizeof(T), MPI_BYTE, data_window);
+
+    MPI_Win_fence(0, data_window);
   }
 
   void print () {
-    cout << "Node " << (Cluster::procId + 1) << "/" << Cluster::procs << ":" << endl;
+    cout << "Node " << (Cluster::procId + 1)
+         << "/"     << Cluster::procs << ":" << endl;
     int i;
     for (i = 0; i < numElements; i++) {
       cout << this->data[i] <<  " ";
