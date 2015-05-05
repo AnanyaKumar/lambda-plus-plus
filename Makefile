@@ -28,7 +28,7 @@ SRCS=$(SRCDIR)/main.cpp\
 
 OBJS=$(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 
-CXXFLAGS+=-O3 -std=c++11 #-Wall -Wextra
+CXXFLAGS+=-O3 -std=c++11 -Wall #-Wextra
 LDFLAGS+=-lpthread -lmpi -lmpi_cxx -Llib
 
 .PHONY: jobs
