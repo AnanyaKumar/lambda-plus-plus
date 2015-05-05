@@ -5,7 +5,24 @@
   - Folders: sequence, util, unittest, perftest, demo, cluster
 
 - Basic Functionality
-  - Implement "set" in the parallel sequence library
+  - Fix warnings
+    - It looks like we're doing our constructors incorrectly because of the
+      abstract, virtual class issue. We get the following errors that seem to
+      indicate that our destructors aren't being called:
+    - When compiling:
+
+      ```gcc
+      src/mandelbrot.cpp: In function ‘void test_mandelbrot()’:
+      src/mandelbrot.cpp:107:12: warning: deleting object of abstract class type ‘Sequence<int>’ which has non-virtual destructor will cause undefined behaviour [-Wdelete-non-virtual-dtor]
+           delete seq;
+                  ^</int>
+      ```
+    - When running:
+
+      ```
+      [ghc27.ghc.andrew.cmu.edu:19916] WARNING: There were 1 Windows created but not freed.
+      ```
+
 
 - Demos/Applications
   - Think about how to implement sorting (doesn't seem trivial at all)
