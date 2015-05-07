@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="utf-8">
+    <!--
+    <meta name="viewport" content="width=device-width initial-scale=1" />
+      -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>{{ site.title }}</title>
+    <meta name="description" content="{{ site.description }}">
+
+    <link rel="icon" href="{{ "/img/favicon.png" | prepend: site.baseurl }}">
+
+    <!--
+      <link rel="stylesheet" href="{{ "/css/main.css" | prepend: site.baseurl }}">
+    -->
+
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ "/css/landing.css" | prepend: site.baseurl }}">
+
+    <link href='http://fonts.googleapis.com/css?family=Lato:400,600' rel='stylesheet' type='text/css'>
+
+    <script src="{{ "/js/main.js" | prepend: site.baseurl }}"></script>
+  </head>
+
+  <body>
+    <div class="floating-header">
+      Lambda<sup>++</sup>
+    </div>
+
+    <header>
+      <a class="pull-left logo-anchor" href="{{ "/articles/" | prepend: site.baseurl }}">
+        <img class="logo" src="{{ "/img/lpp-bg.png" | prepend: site.baseurl }}">
+      </a>
+
+      <ul class="pull-right header-list">
+        {% for post in site.posts %}
+          <a class="link-item" href="{{ post.url | prepend: site.baseurl }}"><li>{{ post.short-title }}</li></a>
+        {% endfor %}
+      </ul>
+    </header>
+
+    <div class="hero">
+      <div class="title-pane">
+        <img class="title-logo" src="{{ "/img/lpp-bg.png" | prepend: site.baseurl }}">
+        <div class="title">Lambda<sup>++</sup></div>
+        <div class="subtitle">functional sequence library for C++</div>
+      </div>
+
+      <div class="hero-example"></div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        {{ content }}
+      </div>
+    </div>
+
+    <footer>
+      Ananya Kumar, Jake Zimmerman, 15-418 Spring 2015
+    </footer>
+  </body>
+
+</html>
