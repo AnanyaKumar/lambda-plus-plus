@@ -1,0 +1,7 @@
+#!/bin/sh
+#PBS -l nodes=2:ppn=1
+#PBS -l walltime=0:1:00
+
+cd $PBS_O_WORKDIR
+source /opt/torque/etc/openmpi-setup.sh
+mpirun ./main
