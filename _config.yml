@@ -1,5 +1,5 @@
 # Site settings
-title: "Lambda++: Functional Sequence Library in C++"
+title: "Lambda++: Functional Sequence Library for C++"
 email: ananyak@andrew, jezimmer@andrew
 description: > # this means to ignore newlines until "baseurl:"
   A parallel sequence library for C++ with support for operations like map,
