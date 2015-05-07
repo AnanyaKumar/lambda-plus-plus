@@ -53,6 +53,8 @@ bool paren_match(Sequence<int> &seq) {
 We know that a library for parallel program lives or dies by it's performance,
 so we've taken care to optimize for many types of usage patterns.
 
+![]({{ "/img/speedup.png" | prepend: site.baseurl }})
+
 
 # Where to Go Now
 
@@ -65,6 +67,9 @@ there are a number of other resources you can check out:
 
 We're pretty excited about our project, and we hope we've manged to share that
 with you.
+
+This site is still a work in progress! We'll be revising it with more up-to-date
+information soon, so be sure to check back!
 
 
 [proposal]: project-proposal/
