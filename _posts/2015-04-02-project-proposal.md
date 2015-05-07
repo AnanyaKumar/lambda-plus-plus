@@ -1,6 +1,7 @@
 ---
 layout: post
 title: "Project Proposal"
+short-title: "Proposal"
 date: "Thu Apr  2 13:01:12 EDT 2015"
 ---
 

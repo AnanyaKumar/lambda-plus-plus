@@ -1,6 +1,7 @@
 ---
 layout: post
 title: "Project Checkpoint"
+short-title: "Checkpoint"
 date: "Mon Apr 20 23:56:28 EDT 2015"
 ---
 
