@@ -48,6 +48,12 @@ header {
   z-index: 2;
 }
 
+@media(max-width: 768px) {
+  .header-list {
+    display: none;
+  }
+}
+
 .pull-left {
   float: left;
 }
@@ -132,7 +138,7 @@ header {
 }
 
 .content {
-  width: 650px;
+  max-width: 650px;
   margin: 0 auto;
 
   font-size: 1.1rem;
@@ -146,6 +152,10 @@ header {
 
   a {
     color: white;
+  }
+
+  img {
+    max-width: 100%;
   }
 }
 
