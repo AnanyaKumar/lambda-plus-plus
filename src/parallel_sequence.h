@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <mpi.h>
+#include <omp.h>
 
 #include "sequence.h"
 #include "cluster.h"
@@ -115,9 +116,7 @@ public:
 
   ParallelSequence (function<T(int)> generator, int n) {
     initialize(n);
-    for (int i = 0; i < numElements; i++) {
-      this->data[i] = generator(startIndex + i);
-    }
+    transform(generator);
     endMethod();
   }
 
@@ -126,6 +125,7 @@ public:
   }
 
   void transform (function<T(T)> mapper) {
+    // #pragma omp parallel for
     for (int i = 0; i < numElements; i++) {
       this->data[i] = mapper(this->data[i]);
     }

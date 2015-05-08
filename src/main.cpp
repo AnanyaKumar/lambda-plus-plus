@@ -18,7 +18,7 @@ int main (int argc, char **argv) {
   // test_paren_match(100000000);
 
   // mandelbrot test
-  test_mandelbrot();
+  // test_mandelbrot();
 
   // {
   //   auto identity = [](int i) { return i; };
@@ -36,6 +36,19 @@ int main (int argc, char **argv) {
 
   //ParallelSequence<int> s2(identity, 1000);
   //s2.print();
+
+  // Toy example test
+  double start_time = CycleTimer::currentSeconds();
+  auto work = [](int i) {
+    int x = 0;
+    for (int j = 0; j < 100000; j++) {
+      x += i * j;
+    }
+    return x;
+  };
+  ParallelSequence<int> s3(work, 1000000);
+  double total_time_parallel = CycleTimer::currentSeconds() - start_time;
+  cout << total_time_parallel << endl;
 
   Cluster::close();
   return 0;
