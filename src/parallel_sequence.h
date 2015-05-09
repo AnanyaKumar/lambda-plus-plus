@@ -116,7 +116,12 @@ public:
 
   ParallelSequence (function<T(int)> generator, int n) {
     initialize(n);
-    transform(generator);
+    #pragma offload target(mic) optional out(this->data)
+    {
+      for (int i = 0; i < numElements; i++) {
+        this->data[i] = generator(startIndex + i);
+      }
+    }
     endMethod();
   }
 
@@ -125,10 +130,6 @@ public:
   }
 
   void transform (function<T(T)> mapper) {
-    #pragma omp parallel
-    {
-      cout << omp_get_num_threads() << endl;
-    }
     #pragma omp parallel for
     for (int i = 0; i < numElements; i++) {
       this->data[i] = mapper(this->data[i]);
