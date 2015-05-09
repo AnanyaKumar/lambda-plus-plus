@@ -34,6 +34,7 @@ bool paren_match(Sequence<int> &seq) {
   return seq.get(seq.length() - 1) == 0 &&
          seq.reduce(min, int_max) >= 0;
 }
+```
 
 A more compact version using functions supplied by our libraries:
 
@@ -43,6 +44,7 @@ bool paren_match(Sequence<int> &seq) {
   return seq.get(seq.length() - 1) == 0 &&
          seq.reduce(Lambda:min_elem, INT_MAX) >= 0;
 }
+```
 
 
 # Lightning Fast Cluster Computing
