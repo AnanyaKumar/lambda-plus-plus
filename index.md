@@ -2,7 +2,23 @@
 layout: landing
 ---
 
-# Functions are Values
+# Library a (Code) Monkey could use
+
+
+
+# Lightning Fast Cluster Computing
+
+
+
+# Versatile: from Parenthesis Matching to Dynamic Programming
+
+
+
+# Customizable for Power Users
+
+
+
+# The Power of Lambda
 
 Those coming from the realm of Haskell or ML will surely know the beauty of
 functions. Being able to describe an algorithm in terms of the operations it's
@@ -48,7 +64,7 @@ bool paren_match(Sequence<int> &seq) {
 ```
 
 
-# Performance is Key
+# Some (very preliminary) Results
 
 We know that a library for parallel program lives or dies by it's performance,
 so we've taken care to optimize for many types of usage patterns.
