@@ -5,6 +5,7 @@ namespace Cluster {
   // Information about this node
   extern int procs;
   extern int procId;
+  extern int blocksPerProc;
   void init (int *argc, char ***argv);
   void close ();
 };
