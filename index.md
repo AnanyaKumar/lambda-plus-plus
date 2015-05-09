@@ -49,7 +49,11 @@ bool paren_match(Sequence<int> &seq) {
 
 # Lightning Fast Cluster Computing
 
-Lambda++ uses the Message Passing Interface (MPI) to minimize communication accross nodes in the
+We believe that cluster computing is the future. Companies from Google to Amazon hold vast compute
+resources, but these resources cannot be combined onto a single chip. Applications that want to
+remain revelant and fast need to scale accross multiple nodes.
+
+Lambda++ uses the Message Passing Interface (MPI) to minimize communication accross nodes in a
 cluster and to explicitly handle memory allocation. This means that your programs aren't blocked by
 high network latencies or by memory addresses jumping back and forth accross nodes.
 
@@ -66,58 +70,23 @@ others in performance! We do this by quickly profiling available compute resourc
 is distributed.
 
 
-# Versatile: from Bracket Matching to DP
+# The Versatility of Lambda
 
-
-
-# Customizable for Power Users
-
-
-
-# The Power of Lambda
-
-Those coming from the realm of Haskell or ML will surely know the beauty of
-functions. Being able to describe an algorithm in terms of the operations it's
-composed of, building on top of a toolkit of "higher-order" functions like
-`map`, `reduce`, `filter`, and `scan` is incredibly powerful. On top of their
+If you've ever tried a functional language like Haskell or SML, you know that
+functions are awesome! Being able to describe an algorithm in terms of the operations 
+it's composed of, and building on top of a toolkit of "higher-order" functions like
+`map`, `reduce`, `filter`, and `scan`, is incredibly powerful. On top of their
 value to a programmer's efficiency, these primitives lend themselves nicely to
 parallelization.
 
 With Lambda++, we bring these benefits to C++. Using OpemMPI on top
 of C++11, we have been able to implement a library of these functions, called
-the `Sequence` library, which borrows heavily in it's API design from the class
-15-210. It aims to be familiar and useful, enabling the user to achieve great
-performance while retaining expressiveness.
+the `Sequence` library. The API design is adapted from a class at Carnegie Mellon, which
+uses a similar (non-parallelized) library to solve programs from dynamic programming to
+graph contraction. 
 
-As an example of what it looks like in practice, here's a snippet from a simple
-algorithm that computes whether a sequence of parentheses is well matched:
-
-```cpp
-/*
- * Test if a sequence of 1's or -1's is "matched", treating
- * 1's as open parens and -1's as close parens.
- * (String parsing omitted)
- */
-bool paren_match(Sequence<int> &seq) {
-  // C++11 lambda functions
-  auto plus = [](int a, int b) {
-    return a + b;
-  };
-  auto min = [](int a, int b) {
-    return a < b ? a : b;
-  };
-
-  // Compute a prefix sum
-  seq.scan(plus, 0);
-
-  int int_max = std::numeric_limits<int>::max();
-
-  // A well matched sequence has a net sum of 0 and
-  // never drops under zero
-  return seq.get(seq.length() - 1) == 0 &&
-         seq.reduce(min, int_max) >= 0;
-}
-```
+Lambda++ is familiar and useful, enabling the user to achieve great performance while 
+retaining expressiveness.
 
 
 # Some (very preliminary) Results
@@ -130,8 +99,19 @@ so we've taken care to optimize for many types of usage patterns.
 
 # Where to Go Now
 
-This has been just a brief introduction to our project. For more information,
-there are a number of other resources you can check out:
+We hope you enjoyed the quick introduction to our project. Right now we are profiling the
+performance of our library. We are very exciting about seeing our project to completion.
+
+If you're a judge, select us for the Parallel Contest in Carnegie Mellon on the 11th of May 
+for more information! We will show:
+
+- Performance results for a large number of nodes
+- Work balancing capabilities of our library
+- Code samples and results for more application, like useful dynamic programming programs
+- Comparisons with libraries like CUDA Thrust
+
+And we will delve into more details about our algorithms. For now, there are a number of other 
+resources you can check out:
 
 - [Our original project proposal][proposal]
 - [Our project's final writeup][writeup]
