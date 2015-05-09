@@ -36,7 +36,7 @@ bool paren_match(Sequence<int> &seq) {
 }
 ```
 
-A more compact version using functions supplied by our libraries:
+A more compact version using functions (plus, min_elem) supplied by our libraries:
 
 ```cpp
 bool paren_match(Sequence<int> &seq) {
@@ -49,6 +49,21 @@ bool paren_match(Sequence<int> &seq) {
 
 # Lightning Fast Cluster Computing
 
+Lambda++ uses the Message Passing Interface (MPI) to minimize communication accross nodes in the
+cluster and to explicitly handle memory allocation. This means that your programs aren't blocked by
+high network latencies or by memory addresses jumping back and forth accross nodes.
+
+Within a node, Lambda++ uses OpenMP to optimize for high speed shared memory architectures. The
+library uses external devices (like the 40-core Xeon Phi) when possible to squeeze every ounce of
+power from the cluster.
+
+Lambda++ uses randomized algorithms to balance load accross the cluster. This ensures that one
+processor doesn't hold up the compute task, but avoids the overhead of synchronization in
+traditional work stealing approaches.
+
+To sweeten the deal, Lambda++ adapts to those pesky architectures where some compute resources dwarf 
+others in performance! We do this by quickly profiling available compute resources before the work 
+is distributed.
 
 
 # Versatile: from Bracket Matching to DP
