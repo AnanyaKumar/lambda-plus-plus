@@ -106,7 +106,8 @@ class ParallelSequence: public Sequence<T>
 public:
   ParallelSequence (T *array, int n) {
     initialize(n);
-    // #pragma omp parallel for
+    
+    #pragma omp parallel for
     for (int i = 0; i < numElements; i++) {
       this->data[i] = array[startIndex + i];
     }
@@ -115,7 +116,13 @@ public:
 
   ParallelSequence (function<T(int)> generator, int n) {
     initialize(n);
-    // #pragma omp parallel for
+    
+    #pragma omp parallel
+    {
+      cout << omp_get_num_threads() << endl;
+    }
+    
+    #pragma omp parallel for
     for (int i = 0; i < numElements; i++) {
       this->data[i] = generator(startIndex + i);
     }

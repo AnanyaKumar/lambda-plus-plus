@@ -1,7 +1,8 @@
 #!/bin/sh
-#PBS -l nodes=2:ppn=1
-#PBS -l walltime=0:1:00
+#PBS -l nodes=2:ppn=2
+#PBS -l walltime=0:6:00
 
 cd $PBS_O_WORKDIR
-source /opt/torque/etc/openmpi-setup.sh
-mpirun ./main
+#source /opt/intel/bin/compilervars.sh intel64
+#module load gcc-4.9.2
+pbsdsh -u $PBS_O_WORKDIR/main
