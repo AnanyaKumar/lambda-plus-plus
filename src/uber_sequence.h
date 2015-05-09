@@ -25,7 +25,7 @@ struct SeqPart
 };
 
 template<typename T>
-class UberSequence
+class UberSequence : public Sequence<T>
 {
   // Get rid of these
   T *data;

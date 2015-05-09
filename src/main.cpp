@@ -20,17 +20,17 @@ int main (int argc, char **argv) {
   // test_paren_match(100000000);
 
   // mandelbrot test
-  // test_mandelbrot();
+  test_mandelbrot();
 
-  {
-    auto identity = [](int i) { return i; };
-    UberSequence<int> *s = new UberSequence<int>(identity, 100);
-    s->print();
-    // s->set(5, 2);
-    // cout << s->get(99) << endl;
-    // cout << s->get(5) << endl;
-    delete s;
-  }
+  // {
+  //   auto identity = [](int i) { return i; };
+  //   UberSequence<int> *s = new UberSequence<int>(identity, 100);
+  //   s->print();
+  //   // s->set(5, 2);
+  //   // cout << s->get(99) << endl;
+  //   // cout << s->get(5) << endl;
+  //   delete s;
+  // }
 
   //auto combiner = [](int x, int y) { return x + y; };
   //s->scan(combiner, 0);

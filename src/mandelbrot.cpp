@@ -6,6 +6,7 @@
 
 #include "serial_sequence.h"
 #include "parallel_sequence.h"
+#include "uber_sequence.h"
 
 #include "CycleTimer.h"
 
@@ -52,7 +53,7 @@ Sequence<int> *mandelbrot_helper(float x0, float y0,
   };
 
   if (parallelize) {
-    return new ParallelSequence<int>(mandel_idx, width * height);
+    return new UberSequence<int>(mandel_idx, width * height);
   }
   else {
     return new SerialSequence<int>(mandel_idx, width * height);
@@ -90,8 +91,8 @@ void test_mandelbrot() {
   float y0 = -1;
   float y1 = 1;
 
-  int width = 1200;
-  int height = 800;
+  int width = 5000;
+  int height = 2000;
   int max_iters = 256;
 
   // Run the serial implementation. Report the minimum time of three
