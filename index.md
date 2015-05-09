@@ -2,15 +2,54 @@
 layout: landing
 ---
 
-# Library a (Code) Monkey could use
+# Designed for Monkeys
 
+Most programmers don't know the intricacies of parallel programming. That's why we designed a
+libary even a Monkey could use.
+
+Example code for an algorithm that computes whether a sequence of parentheses is well matched:
+
+```cpp
+/*
+ * Test if a sequence of 1's or -1's is "matched", treating
+ * 1's as open parens and -1's as close parens.
+ * (String parsing omitted)
+ */
+bool paren_match(Sequence<int> &seq) {
+  // C++11 lambda functions
+  auto plus = [](int a, int b) {
+    return a + b;
+  };
+  auto min = [](int a, int b) {
+    return a < b ? a : b;
+  };
+
+  // Compute a prefix sum
+  seq.scan(plus, 0);
+
+  int int_max = std::numeric_limits<int>::max();
+
+  // A well matched sequence has a net sum of 0 and
+  // never drops under zero
+  return seq.get(seq.length() - 1) == 0 &&
+         seq.reduce(min, int_max) >= 0;
+}
+
+A more compact version using functions supplied by our libraries:
+
+```cpp
+bool paren_match(Sequence<int> &seq) {
+  seq.scan(Lambda::plus, 0);
+  return seq.get(seq.length() - 1) == 0 &&
+         seq.reduce(Lambda:min_elem, INT_MAX) >= 0;
+}
 
 
 # Lightning Fast Cluster Computing
 
 
 
-# Versatile: from Parenthesis Matching to Dynamic Programming
+# Versatile: from Bracket Matching to DP
 
 
 
