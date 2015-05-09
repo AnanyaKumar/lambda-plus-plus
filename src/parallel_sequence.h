@@ -125,7 +125,7 @@ public:
   }
 
   void transform (function<T(T)> mapper) {
-    // #pragma omp parallel for
+    #pragma omp parallel for
     for (int i = 0; i < numElements; i++) {
       this->data[i] = mapper(this->data[i]);
     }
