@@ -40,8 +40,6 @@ class ParallelSequence: public Sequence<T>
       delete[] this->data;
     }
     MPI_Win_free(&data_window);
-
-    cout << "Called destroy" << endl;
   }
 
   bool isMine (int index) {
@@ -108,6 +106,7 @@ class ParallelSequence: public Sequence<T>
 public:
   ParallelSequence (T *array, int n) {
     initialize(n);
+    // #pragma omp parallel for
     for (int i = 0; i < numElements; i++) {
       this->data[i] = array[startIndex + i];
     }
@@ -116,11 +115,9 @@ public:
 
   ParallelSequence (function<T(int)> generator, int n) {
     initialize(n);
-    #pragma offload target(mic) optional out(this->data)
-    {
-      for (int i = 0; i < numElements; i++) {
-        this->data[i] = generator(startIndex + i);
-      }
+    // #pragma omp parallel for
+    for (int i = 0; i < numElements; i++) {
+      this->data[i] = generator(startIndex + i);
     }
     endMethod();
   }
@@ -130,7 +127,6 @@ public:
   }
 
   void transform (function<T(T)> mapper) {
-    #pragma omp parallel for
     for (int i = 0; i < numElements; i++) {
       this->data[i] = mapper(this->data[i]);
     }
