@@ -23,11 +23,11 @@ int main (int argc, char **argv) {
   // test_mandelbrot();
 
   // {
-    auto identity = [](int i) { return i; };
-    UberSequence<int> *s = new UberSequence<int>(identity, 100);
+    // auto identity = [](int i) { return i; };
+    // UberSequence<int> *s = new UberSequence<int>(identity, 100);
     // auto combiner = [](int x, int y) { return x + y; };
     // s->scan(combiner, 0);
-    s->print();
+    // s->print();
     // cout << s->get(8) << endl;
     // int x = s->reduce(combiner, 0);
     // cout << x << endl;
@@ -56,22 +56,22 @@ int main (int argc, char **argv) {
   // }
 
   // Toy example test
-  // double start_time = CycleTimer::currentSeconds();
+  double start_time = CycleTimer::currentSeconds();
 
   // Hard work function
-  // auto work = [](int i) {
-  //   int x = 0;
-  //   for (int j = 0; j < 20000; j++) {
-  //     x += i * j;
-  //   }
-  //   return x;
-  // };
+  auto work = [](int i) {
+    int x = 0;
+    for (int j = 0; j < 20000; j++) {
+      x += i * j;
+    }
+    return x;
+  };
 
   // Addition combiner
   // auto combiner = [](int x, int y) { return x + y; };
 
   // Work Test
-  // UberSequence<int> *s3 = new UberSequence<int>(work, 100000);
+  UberSequence<int> *s3 = new UberSequence<int>(work, 500000);
   // s3->print();
 
   // Reduce Test
@@ -80,10 +80,10 @@ int main (int argc, char **argv) {
   //   x += s3->reduce(combiner, 0);
   // }
 
-  // double total_time_parallel = CycleTimer::currentSeconds() - start_time;
+  double total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
   // cout << "Answer: " << x << endl;
-  // cout << total_time_parallel << endl;
+  cout << total_time_parallel << endl;
 
   Cluster::close();
   return 0;
