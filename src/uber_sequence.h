@@ -2,6 +2,7 @@
 #define _UBER_SEQUENCE_H_
 
 #include <iostream>
+#include <cassert>
 #include <mpi.h>
 
 #include "sequence.h"
@@ -9,13 +10,16 @@
 
 using namespace std;
 
+/** Used to store which parts of the sequence each node is responsible for **/
 struct Responsibility
 {
   int procId;
   int startIndex;
   int numElements;
+  MPI_Win data_window;
 };
 
+/** Used to store the parts of the sequence the node is responsible for **/
 template<typename T>
 struct SeqPart
 {
@@ -24,22 +28,14 @@ struct SeqPart
   T* data;
 };
 
+/** This is an uber sequence **/
 template<typename T>
 class UberSequence : public Sequence<T>
 {
-  // Get rid of these
-  T *data;
-  int startIndex; // data is inclusive of the element at startIndex
-  int numElements;
-
-  // The new stuff
-  int size;
   int numResponsibilities;
   Responsibility *responsibilities;
   int numParts;
   SeqPart<T> *mySeqParts;
-
-  MPI_Win data_window; // gives nodes access to each others' data
 
   void computeResponsibilities () {
     int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
@@ -55,10 +51,9 @@ class UberSequence : public Sequence<T>
       this->responsibilities[i].startIndex = curStartIndex;
       this->responsibilities[i].numElements = (i < numLeftOverElements ? blockSize + 1 : blockSize);
       curStartIndex += this->responsibilities[i].numElements;
-
-      // if (Cluster::procId == 0) {
-      //   cout << this->responsibilities[i].startIndex << " " << this->responsibilities[i].numElements << endl;
-      // }
+      if (this->responsibilities[i].numElements < 1) {
+        cout << "Warning: Sequence library not verified for small sequences." << endl;
+      }
     }
   }
 
@@ -66,11 +61,20 @@ class UberSequence : public Sequence<T>
     int curPart = 0;
     this->mySeqParts = new SeqPart<T>[this->numParts];
     for (int i = 0; i < this->numResponsibilities; i++) {
-      if (this->responsibilities[i].procId != Cluster::procId) continue;
-      this->mySeqParts[curPart].startIndex = this->responsibilities[i].startIndex;
-      this->mySeqParts[curPart].numElements = this->responsibilities[i].numElements;
-      this->mySeqParts[curPart].data = new T[this->mySeqParts[curPart].numElements];
-      curPart++;
+      if (this->responsibilities[i].procId != Cluster::procId) {
+        MPI_Win_create(NULL, 0, sizeof(T), MPI_INFO_NULL, MPI_COMM_WORLD, 
+          &responsibilities[i].data_window);
+        MPI_Win_fence(0, responsibilities[i].data_window);
+      } else {
+        int numElements = this->responsibilities[i].numElements;
+        this->mySeqParts[curPart].startIndex = this->responsibilities[i].startIndex;
+        this->mySeqParts[curPart].numElements = numElements;
+        this->mySeqParts[curPart].data = new T[numElements];
+        curPart++;
+        MPI_Win_create(this->mySeqParts[curPart].data, numElements * sizeof(T), sizeof(T),
+          MPI_INFO_NULL, MPI_COMM_WORLD, &responsibilities[i].data_window);
+        MPI_Win_fence(0, responsibilities[i].data_window);
+      }
     }
   }
 
@@ -78,54 +82,45 @@ class UberSequence : public Sequence<T>
     this->size = n;
     computeResponsibilities();
     allocateSeqParts();
-
-    int equalSplit = this->size / Cluster::procs;
-    int numLeftOverElements = this->size % Cluster::procs;
-    int myLeftOver = Cluster::procId < numLeftOverElements;
-    numElements = equalSplit + myLeftOver;
-    if (myLeftOver) {
-      startIndex = Cluster::procId * (equalSplit + 1);
-    } else {
-      startIndex = Cluster::procId * equalSplit + numLeftOverElements;
-    }
-
-    this->data = new T[numElements];
-    MPI_Win_create(this->data, numElements * sizeof(T), sizeof(T),
-      MPI_INFO_NULL, MPI_COMM_WORLD, &data_window);
-    MPI_Win_fence(0, data_window);
   }
 
   void destroy () {
-    if (this->size != 0) {
-      delete[] this->data;
+    for (int i = 0; i < this->numParts; i++) {
+      delete[] this->mySeqParts[i].data;
     }
-    MPI_Win_free(&data_window);
-  }
-
-  bool isMine (int index) {
-    return startIndex <= index && index < startIndex + numElements;
+    delete[] this->mySeqParts;
+    int totalBlocks = Cluster::procs * Cluster::blocksPerProc;
+    for (int i = 0; i < totalBlocks; i++) {
+      MPI_Win_free(&(responsibilities[i].data_window));
+    }
   }
 
   int getNodeWithData (int index) {
-    int equalSplit = this->size / Cluster::procs;
-    int numLeftOverElements = this->size % Cluster::procs;
-    int block = (equalSplit + 1) * numLeftOverElements;
-    if (index < block) {
-      return index / (equalSplit + 1);
-    } else {
-      return (index - block) / equalSplit + numLeftOverElements;
+    // Get the node for the index
+    int nodeWithIndex = 0;
+    int totalBlocks = Cluster::procs * Cluster::blocksPerProc;
+    for (int block = 0; block < totalBlocks; block++) {
+      int startIndex = this->responsibilities[block].startIndex;
+      int numElements = this->responsibilities[block].numElements;
+      if (startIndex <= index && index < startIndex + numElements) {
+        nodeWithIndex = this->responsibilities[block].procId;
+      }
     }
+    return nodeWithIndex;
   }
 
-  int getDataDisp (int index) {
-    int equalSplit = this->size / Cluster::procs;
-    int numLeftOverElements = this->size % Cluster::procs;
-    int block = (equalSplit + 1) * numLeftOverElements;
-    if (index < block) {
-      return index % (equalSplit + 1);
-    } else {
-      return (index - block) % equalSplit;
+  /** Assumes the current node has the index **/
+  T getData (int index) {
+    for (int part = 0; part < this->numParts; part++) {
+      int startIndex = this->mySeqParts[part].startIndex;
+      int numElements = this->mySeqParts[part].numElements;
+      if (startIndex <= index && index < startIndex + numElements) {
+        return this->mySeqParts[part].data[index - startIndex];
+      }
     }
+    assert(false);
+    T x;
+    return x;
   }
 
   void endMethod () {
@@ -133,41 +128,57 @@ class UberSequence : public Sequence<T>
   }
 
   T *getPartialReduces (function<T(T,T)> combiner) {
-    // TODO: Consider possibly faster ways of transfering data
-    T myValue = this->data[0]; // TODO: what if there are 0 elements?
-    for (int i = 1; i < numElements; i++) {
-      myValue = combiner(myValue, this->data[i]);
+    // Get all my partial results (sendbuf). Note assumes each part has >= 1 element.
+    T *myPartialReduces = new T[this->numParts];
+    for (int part = 0; part < this->numParts; part++) {
+      int numElements = this->mySeqParts[part].numElements;
+      T *curData = this->mySeqParts[part].data;
+      myPartialReduces[part] = curData[0];
+      for (int i = 1; i < numElements; i++) {
+        myPartialReduces[part] = combiner(myPartialReduces[part], curData[i]);
+      }
     }
+
+    // Compute receive counts, displacements for AllGatherV
+    int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
+    T *recvbuf = new T[totalBlocks];
+    T *recvcounts = new T[Cluster::procs]; // Note, this is in BYTES
+    T *displs = new T[Cluster::procs]; // Note, this is in BYTES
+    for (int i = 0; i < Cluster::procs; i++) {
+      recvcounts[i] = Cluster::blocksPerProc * sizeof(T);
+      displs[i] = i * Cluster::blocksPerProc * sizeof(T);
+    }
+
+    // MPI all gatherv
     MPI_Barrier(MPI_COMM_WORLD); // Is the barrier necessary?
+    MPI_Allgatherv(myPartialReduces, this->numParts * sizeof(T), MPI_BYTE, 
+      recvbuf, recvcounts, displs, MPI_BYTE, MPI_COMM_WORLD);
 
-    T *recvbuf;
-    int *recvcounts;
-    int *displs;
-    recvbuf = new T[Cluster::procs];
-    recvcounts = new T[Cluster::procs];
-    displs = new T[Cluster::procs];
-
-    recvcounts[0] = sizeof(T);
-    displs[0] = 0;
-    for (int i = 1; i < Cluster::procs; i++) {
-      recvcounts[i] = sizeof(T);
-      displs[i] = displs[i-1] + sizeof(T);
+    // Sort the receive buffer into the correct order (hack, assumes that nodes' data is interleaved)
+    T *partialReduces = new T[totalBlocks];
+    for (int i = 0; i < totalBlocks; i++) {
+      int procNum = i / Cluster::blocksPerProc;
+      int procDisp = i % Cluster::blocksPerProc;
+      int index = procDisp * Cluster::procs + procNum;
+      partialReduces[index] = recvbuf[i];
     }
 
-    MPI_Allgatherv(&myValue, sizeof(T), MPI_BYTE, recvbuf, recvcounts,
-      displs, MPI_BYTE, MPI_COMM_WORLD);
-
+    // Free everything & Return
+    free(recvbuf);
     free(recvcounts);
     free(displs);
-
-    return recvbuf;
+    return partialReduces;
   }
 
 public:
   UberSequence (T *array, int n) {
     initialize(n);
-    for (int i = 0; i < numElements; i++) {
-      this->data[i] = array[startIndex + i];
+    for (int part = 0; part < this->numParts; part++) {
+      int startIndex = this->mySeqParts[part].startIndex;
+      int numElements = this->mySeqParts[part].numElements;
+      for (int i = 0; i < numElements; i++) {
+        this->mySeqParts[part].data[i] = array[startIndex + i];
+      }
     }
     endMethod();
   }
@@ -189,8 +200,11 @@ public:
   }
 
   void transform (function<T(T)> mapper) {
-    for (int i = 0; i < numElements; i++) {
-      this->data[i] = mapper(this->data[i]);
+    for (int part = 0; part < this->numParts; part++) {
+      int numElements = this->mySeqParts[part].numElements;
+      for (int i = 0; i < numElements; i++) {
+        this->mySeqParts[part].data[i] = mapper(this->mySeqParts[part].data[i]);
+      }
     }
     endMethod();
   }
@@ -204,50 +218,70 @@ public:
   }
 
   T reduce (function<T(T,T)> combiner, T init) {
-    T *recvbuf = getPartialReduces(combiner);
+    T *partialReduces = getPartialReduces(combiner);
 
     // Compute the final answer
     T value = init;
-    for (int i = 0; i < Cluster::procs; i++) {
-      value = combiner(value, recvbuf[i]);
+    for (int i = 0; i < Cluster::procs * Cluster::blocksPerProc; i++) {
+      value = combiner(value, partialReduces[i]);
     }
 
-    free(recvbuf);
+    free(partialReduces);
+    endMethod();
     return value;
   }
 
   void scan (function<T(T,T)> combiner, T init) {
-    T *recvbuf = getPartialReduces(combiner);
+    T *partialReduces = getPartialReduces(combiner);
 
     // Get the combination of all values before values in current node
     T scan = init;
-    for (int i = 0; i < Cluster::procId; i++) {
-      scan = combiner(scan, recvbuf[i]);
+    int myBlocksScanned = 0;
+    for (int i = 0; i < Cluster::procs * Cluster::blocksPerProc; i++) {
+      // Check if the current block is mine, if so apply
+      if (this->responsibilities[i].procId == Cluster::procId) {
+        int numElements = this->mySeqParts[myBlocksScanned].numElements;
+        T *curData = this->mySeqParts[myBlocksScanned].data;
+        for (int j = 0; j < numElements; j++) {
+          scan = combiner(scan, curData[j]);
+          curData[j] = scan;
+        }
+        myBlocksScanned++;
+      } else {
+        scan = combiner(scan, partialReduces[i]);
+      }
     }
 
-    // Apply the scan to elements in the current node
-    this->data[0] = combiner(scan, this->data[0]);
-    for (int i = 1; i < numElements; i++) {
-      this->data[i] = combiner(this->data[i-1], this->data[i]);
-    }
-
-    free(recvbuf);
+    free(partialReduces);
+    endMethod();
   }
 
   T get (int index) {
+    int nodeWithIndex = getNodeWithData(index);
     T value;
-    MPI_Get(&value, sizeof(T), MPI_BYTE, getNodeWithData(index),
-        getDataDisp(index), sizeof(T), MPI_BYTE, data_window);
+    if (Cluster::procId == nodeWithIndex) {
+      value = getData(index);
+    }
 
-    MPI_Win_fence(0, data_window);
+    // Hack, only works if you call get from outside the sequence library
+    MPI_Bcast(&value, sizeof(T), MPI_BYTE, nodeWithIndex, MPI_COMM_WORLD);
+
+    // T value = 5;
+    // if (Cluster::procId != 0) {
+    //   MPI_Get(&value, sizeof(T), MPI_BYTE, 0,
+    //       0, sizeof(T), MPI_BYTE, this->responsibilities[0].data_window);
+    // } else {
+    //   value = this->mySeqParts[0].data[1];
+    // }
+    // MPI_Win_fence(0, this->responsibilities[0].data_window);
+    // // MPI_Win_fence(0, this->responsibilities[0].data_window);
     return value;
   }
 
   void set (int index, T value) {
-    MPI_Put(&value, sizeof(T), MPI_BYTE, getNodeWithData(index),
-        getDataDisp(index), sizeof(T), MPI_BYTE, data_window);
-
-    MPI_Win_fence(0, data_window);
+    // MPI_Put(&value, sizeof(T), MPI_BYTE, getNodeWithData(index),
+    //     getDataDisp(index), sizeof(T), MPI_BYTE, data_window);
+    // MPI_Win_fence(0, data_window);
   }
 
   void print () {

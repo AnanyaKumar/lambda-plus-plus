@@ -17,19 +17,24 @@ int main (int argc, char **argv) {
   Cluster::init(&argc, &argv);
 
   // paren test
-  // test_paren_match(100000000);
+  test_paren_match(100000000);
 
   // mandelbrot test
-  test_mandelbrot();
+  // test_mandelbrot();
 
   // {
-  //   auto identity = [](int i) { return i; };
-  //   UberSequence<int> *s = new UberSequence<int>(identity, 100);
-  //   s->print();
+    // auto identity = [](int i) { return i; };
+    // UberSequence<int> *s = new UberSequence<int>(identity, 100);
+    // auto combiner = [](int x, int y) { return x + y; };
+    // s->scan(combiner, 0);
+    // s->print();
+    // cout << s->get(8) << endl;
+    // int x = s->reduce(combiner, 0);
+    // cout << x << endl;
   //   // s->set(5, 2);
   //   // cout << s->get(99) << endl;
   //   // cout << s->get(5) << endl;
-  //   delete s;
+    // delete s;
   // }
 
   //auto combiner = [](int x, int y) { return x + y; };
@@ -53,7 +58,7 @@ int main (int argc, char **argv) {
   };
 
   // Addition combiner
-  auto combiner = [](int x, int y) { return x + y; };
+  // auto combiner = [](int x, int y) { return x + y; };
 
   // Work Test
   // UberSequence<int> *s3 = new UberSequence<int>(work, 10000);

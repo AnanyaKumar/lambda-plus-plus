@@ -7,6 +7,7 @@
 
 #include "serial_sequence.h"
 #include "parallel_sequence.h"
+#include "uber_sequence.h"
 
 #include "CycleTimer.h"
 
@@ -70,7 +71,7 @@ void test_paren_match(int n) {
 
     // ----- Parallel test -----
     start_time = CycleTimer::currentSeconds();
-    ParallelSequence<int> seq2 = ParallelSequence<int>(generators[i], n);
+    UberSequence<int> seq2 = UberSequence<int>(generators[i], n);
     rc = paren_match(seq2);
     total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
