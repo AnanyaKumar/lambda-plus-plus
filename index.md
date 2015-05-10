@@ -5,7 +5,7 @@ layout: landing
 # Designed for Monkeys
 
 Most programmers don't know the intricacies of parallel programming. That's why
-we designed a libary even a Monkey could use.
+we designed a library even a Monkey could use.
 
 Example code for an algorithm that computes whether a sequence of parentheses is
 well matched:
@@ -95,7 +95,7 @@ while retaining expressiveness.
 
 # Some Preliminary Results
 
-We know that a library for parallel program lives or dies by it's performance,
+We know that a library for parallel programming lives or dies by it's performance,
 so we've taken care to optimize for many types of usage patterns. Take a look at
 the following chart:
 
@@ -154,7 +154,7 @@ parentheses uses `scan` and `reduce`, both of which have logarithmic span.
 
 Despite this, the parallel version of our code runs quite quickly across
 multiple nodes. It's important to note that as we continue to push upwards, say
-to 2 million elements, we no longer have enough memory to fit the dataset into
+to 2 billion elements, we no longer have enough memory to fit the dataset into
 a single node, so any serial implementation simply will not work.
 
 
