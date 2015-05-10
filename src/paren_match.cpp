@@ -11,6 +11,15 @@
 
 #include "CycleTimer.h"
 
+bool paren_match(int *data, int dataSize) {
+  int cumSum = 0;
+  for (int i = 0; i < dataSize; i++) {
+    cumSum += data[i];
+    if (cumSum < 0) return false;
+  }
+  return cumSum == 0;
+}
+
 /*
  * Test if a sequence of 1's or -1's is "matched", treating 1's as open parens
  * and -1's as close parens.
@@ -56,10 +65,24 @@ void test_paren_match(int n) {
   double start_time, total_time_serial, total_time_parallel;
   std::string result;
   bool rc;
+  int *data = new int[n];
   for (int i = 0; i < 4; i++) {
-    // ----- Serial test -----
+    // ----- Optimized Serial test -----
+    for (int j = 0; j < n; j++) {
+      data[j] = generators[i](j);
+    }
     start_time = CycleTimer::currentSeconds();
+    rc = paren_match(data, n);
+    total_time_serial = CycleTimer::currentSeconds() - start_time;
+    result = rc == expecteds[i] ? "PASS" : "FAIL";
+    if (Cluster::procId == 0) {
+      std::cout << "[" << result << "] Test " << i << " (fast serial): "
+        << total_time_serial << std::endl;
+    }
+
+    // ----- Serial test -----
     SerialSequence<int> seq1 = SerialSequence<int>(generators[i], n);
+    start_time = CycleTimer::currentSeconds();
     rc = paren_match(seq1);
     total_time_serial = CycleTimer::currentSeconds() - start_time;
 
@@ -70,8 +93,8 @@ void test_paren_match(int n) {
     }
 
     // ----- Parallel test -----
-    start_time = CycleTimer::currentSeconds();
     UberSequence<int> seq2 = UberSequence<int>(generators[i], n);
+    start_time = CycleTimer::currentSeconds();
     rc = paren_match(seq2);
     total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
