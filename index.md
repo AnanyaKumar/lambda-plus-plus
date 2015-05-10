@@ -93,7 +93,7 @@ Lambda++ is familiar and useful, enabling the user to achieve great performance
 while retaining expressiveness.
 
 
-# Some (very preliminary) Results
+# Some Preliminary Results
 
 We know that a library for parallel program lives or dies by it's performance,
 so we've taken care to optimize for many types of usage patterns. Take a look at
