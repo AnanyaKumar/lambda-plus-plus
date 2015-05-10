@@ -329,8 +329,9 @@ code {
 
 pre code {
   padding: 0px;
+  font-size: inherit;
   color: inherit;
+  background-color: transparent;
   white-space: pre;
   white-space: pre-wrap;
-  background-color: transparent;
 }
