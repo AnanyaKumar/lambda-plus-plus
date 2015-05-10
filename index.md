@@ -44,7 +44,7 @@ libraries:
 bool paren_match(Sequence<int> &seq) {
   seq.scan(Lambda::plus, 0);
   return seq.get(seq.length() - 1) == 0 &&
-         seq.reduce(Lambda:min_elem, INT_MAX) >= 0;
+         seq.reduce(Lambda::min_elem, INT_MAX) >= 0;
 }
 ```
 
@@ -103,18 +103,13 @@ the following chart:
 
 This chart shows a bunch of stuff. Let's break it down:
 
-- `paren_match` and `mandelbrot` are test cases.
-  - The former involves checking a parenthesis sequence for well-matchedness.
-  - The latter computes the [Mandelbrot Set][mandelbrot-wiki] over a defined
-    space in the complex plane.
+- `mandelbrot` is a test case that computes elements of the [Mandelbrot
+   Set][mandelbrot-wiki]
 - `SerialSequence`, `ParallelSequence`, and `UberSequence` are all
   implementations of the abstract `Sequence` interface, which just declares
   operations like `map`, `scan`, `reduce`, etc.
 - `ParallelSequence` and `UberSequence` are parallelized versions of this
   abstraction.
-- `UberSequence` and `ParallelSequence` get the same performance on
-  the `paren_match` test. This is because we haven't entirely finished
-  `UberSequence`'s implementation yet.
 - `UberSequence` gets a near perfect speedup on the `mandelbrot` test, doing
   much better than `ParallelSequence`, even though both are parallel algorithms.
 
@@ -143,7 +138,8 @@ version's performance in this cluster.
 Even as we increase the number of execution contexts, we still manage to get
 near-optimal speedups!
 
-Here's the same analysis for `paren_match`:
+Here's the same analysis for `paren_match`, an algorithm that computes whether
+a sequence of parentheses is well-matched:
 
 [![][latedays-speedup-paren]][latedays-speedup-paren]
 
