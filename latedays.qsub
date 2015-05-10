@@ -1,7 +1,8 @@
 #!/bin/sh
-#PBS -l nodes=2:ppn=1
 #PBS -l walltime=0:1:00
+#PBS -lnodes=1:ppn=12
+#PBS -N UberSequence
 
 cd $PBS_O_WORKDIR
-# source /opt/torque/etc/openmpi-setup.sh
-mpirun --mca orte_base_help_aggregate 0 ./main
+source /opt/torque/etc/openmpi-setup.sh
+mpirun --map-by ppr:1:socket --mca orte_base_help_aggregate 0 ./main

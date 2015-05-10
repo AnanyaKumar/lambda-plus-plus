@@ -1,4 +1,6 @@
 #include <mpi.h>
+#include <omp.h>
+#include <cstdio>
 
 #include "cluster.h"
 
@@ -15,6 +17,11 @@ namespace Cluster {
     MPI_Comm_size(MPI_COMM_WORLD, &procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &procId);
     blocksPerProc = 5;
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
+    int name_len;
+    MPI_Get_processor_name(processor_name, &name_len);
+    printf("%s\n", processor_name);
+    omp_set_num_threads(6);
   }
 
   void close () {

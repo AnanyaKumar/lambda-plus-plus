@@ -62,7 +62,7 @@ int main (int argc, char **argv) {
   auto work = [](int i) {
     int x = 0;
     for (int j = 0; j < 20000; j++) {
-      x += i * j;
+      x += i * j + j % 4;
     }
     return x;
   };
@@ -71,7 +71,8 @@ int main (int argc, char **argv) {
   // auto combiner = [](int x, int y) { return x + y; };
 
   // Work Test
-  UberSequence<int> *s3 = new UberSequence<int>(work, 500000);
+  UberSequence<int> *s3 = new UberSequence<int>(work, 50000);
+  //
   // s3->print();
 
   // Reduce Test
