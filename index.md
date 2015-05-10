@@ -143,6 +143,20 @@ version's performance in this cluster.
 Even as we increase the number of execution contexts, we still manage to get
 near-optimal speedups!
 
+Here's the same analysis for `paren_match`:
+
+[![][latedays-speedup-paren]][latedays-speedup-paren]
+
+The first thing you'll notice is that the speedup is not quite as large as it
+was for `mandelbrot`. This is to be expected though. Mandelbrot set generation
+is completely data parallel once you've determined the pixel, whereas matching
+parentheses uses `scan` and `reduce`, both of which have logarithmic span.
+
+Despite this, the parallel version of our code runs quite quickly across
+multiple nodes. It's important to note that as we continue to push upwards, say
+to 2 million elements, we no longer have enough memory to fit the dataset into
+a single node, so any serial implementation simply will not work.
+
 
 # Where to Go Now
 
@@ -176,6 +190,7 @@ information soon, so be sure to check back!
 [ghc-speedup]: {{ "/img/ghc-speedup.png" | prepend: site.baseurl }}
 [ghc-speedup-wb]: {{ "/img/ghc-speedup-wb.png" | prepend: site.baseurl }}
 [latedays-speedup-mandelbrot]: {{ "/img/latedays-speedup-mandelbrot.png" | prepend: site.baseurl }}
+[latedays-speedup-paren]: {{ "/img/latedays-speedup-paren.png" | prepend: site.baseurl }}
 
 [proposal]: project-proposal/
 [writeup]: final-writeup/
