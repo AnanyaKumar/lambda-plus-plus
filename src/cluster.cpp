@@ -9,6 +9,7 @@ namespace Cluster {
   int procs;
   int procId;
   int blocksPerProc;
+  int threadsPerProc;
 
   // TODO: Add static information about the cluster
 
@@ -21,7 +22,8 @@ namespace Cluster {
     int name_len;
     MPI_Get_processor_name(processor_name, &name_len);
     printf("%s\n", processor_name);
-    omp_set_num_threads(6);
+    threadsPerProc = 6;
+    omp_set_num_threads(threadsPerProc);
   }
 
   void close () {

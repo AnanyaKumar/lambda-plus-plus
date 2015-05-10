@@ -37,6 +37,7 @@ class UberSequence : public Sequence<T>
   Responsibility *responsibilities;
   int numParts;
   SeqPart<T> *mySeqParts;
+  int numThreadBlocks;
 
   void computeResponsibilities () {
     int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
@@ -81,6 +82,7 @@ class UberSequence : public Sequence<T>
 
   void initialize (int n) {
     this->size = n;
+    this->numThreadBlocks = Cluster::threadsPerProc;
     computeResponsibilities();
     allocateSeqParts();
   }
@@ -128,18 +130,89 @@ class UberSequence : public Sequence<T>
     MPI_Barrier(MPI_COMM_WORLD);
   }
 
-  T *getPartialReduces (function<T(T,T)> combiner) {
-    // Get all my partial results (sendbuf). Note assumes each part has >= 1 element.
-    T *myPartialReduces = new T[this->numParts];
-    for (int part = 0; part < this->numParts; part++) {
-      int numElements = this->mySeqParts[part].numElements;
-      T *curData = this->mySeqParts[part].data;
-      myPartialReduces[part] = curData[0];
-      for (int i = 1; i < numElements; i++) {
-        myPartialReduces[part] = combiner(myPartialReduces[part], curData[i]);
+  T *getSeqPartialReduces (SeqPart<T> *seqPart, function<T(T,T)> combiner) {
+    int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
+    T *seqPartialReduces = new T[this->numThreadBlocks * indexScaling];
+    #pragma omp parallel
+    {
+      // Find out which part of the seqPart I'm responsible for
+      int numThreads = omp_get_num_threads();
+      int threadId = omp_get_thread_num();
+      int numElements = seqPart->numElements;
+      int equalSplit = numElements / numThreads;
+      int numLeftOverElements = numElements % numThreads;
+      int myLeftOver = threadId < numLeftOverElements;
+      int startIndex;
+      if (myLeftOver) {
+        startIndex = threadId * (equalSplit + 1);
+      } else {
+        startIndex = threadId * equalSplit + numLeftOverElements;
+      }
+      int myNumElements = equalSplit + myLeftOver;
+
+      // Compute my partial reduce
+      int threadIdx = threadId * indexScaling;
+      seqPartialReduces[threadIdx] = seqPart->data[startIndex];
+      for (int i = 1; i < myNumElements; i++) {
+        seqPartialReduces[threadIdx] = combiner(seqPartialReduces[threadIdx], 
+          seqPart->data[startIndex + i]);
       }
     }
+    return seqPartialReduces;
+  }
 
+  void makeSeqPartialScans (T *seqPartialReduces, function<T(T,T)> combiner) {
+    int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
+    for (int i = 1; i < this->numThreadBlocks; i++) {
+      seqPartialReduces[i * indexScaling] = combiner(seqPartialReduces[(i - 1) * indexScaling], 
+        seqPartialReduces[i * indexScaling]);
+    }
+  }
+
+  void applySeqScans (SeqPart<T> *seqPart, function<T(T,T)> combiner, T init, T *seqPartialScans) {
+    int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
+    #pragma omp parallel
+    {
+      // Find out which part of the seqPart I'm responsible for
+      int numThreads = omp_get_num_threads();
+      int threadId = omp_get_thread_num();
+      int numElements = seqPart->numElements;
+      int equalSplit = numElements / numThreads;
+      int numLeftOverElements = numElements % numThreads;
+      int myLeftOver = threadId < numLeftOverElements;
+      int startIndex;
+      if (myLeftOver) {
+        startIndex = threadId * (equalSplit + 1);
+      } else {
+        startIndex = threadId * equalSplit + numLeftOverElements;
+      }
+      int myNumElements = equalSplit + myLeftOver;
+
+      // Compute my scans
+      int threadIdx = threadId * indexScaling;
+      T scan;
+      if (threadId == 0) {
+        scan = init;
+      } else {
+        scan = combiner(init, seqPartialScans[threadIdx - indexScaling]);
+      }
+      for (int i = 0; i < myNumElements; i++) {
+        scan = combiner(scan, seqPart->data[startIndex + i]);
+        seqPart->data[startIndex + i] = scan;
+      }
+    }
+  }
+
+  T getSeqReduce (T *seqPartialReduces, function<T(T,T)> combiner) {
+    int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
+    T reduce = seqPartialReduces[0];
+    for (int i = 1; i < this->numThreadBlocks; i++) {
+      reduce = combiner(reduce, seqPartialReduces[i * indexScaling]);
+    }
+    return reduce;
+  }
+
+  T *getPartialReduces (T *myPartialReduces) {
     // Compute receive counts, displacements for AllGatherV
     int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
     T *recvbuf = new T[totalBlocks];
@@ -165,10 +238,26 @@ class UberSequence : public Sequence<T>
     }
 
     // Free everything & Return
+    free(myPartialReduces);
     free(recvbuf);
     free(recvcounts);
     free(displs);
     return partialReduces;
+  }
+
+  T *getPartialReduces (function<T(T,T)> combiner) {
+    // Get all my partial results (sendbuf). Note assumes each part has >= 1 element.
+    T *myPartialReduces = new T[this->numParts];
+    for (int part = 0; part < this->numParts; part++) {
+      int numElements = this->mySeqParts[part].numElements;
+      T *curData = this->mySeqParts[part].data;
+      myPartialReduces[part] = curData[0];
+      for (int i = 1; i < numElements; i++) {
+        myPartialReduces[part] = combiner(myPartialReduces[part], curData[i]);
+      }
+    }
+
+    return getPartialReduces(myPartialReduces);
   }
 
 public:
@@ -177,6 +266,7 @@ public:
     for (int part = 0; part < this->numParts; part++) {
       int startIndex = this->mySeqParts[part].startIndex;
       int numElements = this->mySeqParts[part].numElements;
+      #pragma omp parallel for
       for (int i = 0; i < numElements; i++) {
         this->mySeqParts[part].data[i] = array[startIndex + i];
       }
@@ -204,6 +294,7 @@ public:
   void transform (function<T(T)> mapper) {
     for (int part = 0; part < this->numParts; part++) {
       int numElements = this->mySeqParts[part].numElements;
+      #pragma omp parallel for
       for (int i = 0; i < numElements; i++) {
         this->mySeqParts[part].data[i] = mapper(this->mySeqParts[part].data[i]);
       }
@@ -220,7 +311,14 @@ public:
   }
 
   T reduce (function<T(T,T)> combiner, T init) {
-    T *partialReduces = getPartialReduces(combiner);
+    T *myPartialReduces = new T[this->numParts];
+    for (int part = 0; part < this->numParts; part++) {
+      T *seqPartialReduces = getSeqPartialReduces(&(this->mySeqParts[part]), combiner);
+      myPartialReduces[part] = getSeqReduce(seqPartialReduces, combiner);
+      delete[] seqPartialReduces;
+    }
+
+    T *partialReduces = getPartialReduces(myPartialReduces);
 
     // Compute the final answer
     T value = init;
@@ -228,13 +326,21 @@ public:
       value = combiner(value, partialReduces[i]);
     }
 
-    free(partialReduces);
+    delete[] partialReduces;
     endMethod();
     return value;
   }
 
   void scan (function<T(T,T)> combiner, T init) {
-    T *partialReduces = getPartialReduces(combiner);
+    T *myPartialReduces = new T[this->numParts];
+    T **seqPartialReduces = new T*[this->numParts];
+    for (int part = 0; part < this->numParts; part++) {
+      seqPartialReduces[part] = getSeqPartialReduces(&(this->mySeqParts[part]), combiner);
+      myPartialReduces[part] = getSeqReduce(seqPartialReduces[part], combiner);
+      makeSeqPartialScans(seqPartialReduces[part], combiner);
+    }
+
+    T *partialReduces = getPartialReduces(myPartialReduces);
 
     // Get the combination of all values before values in current node
     T scan = init;
@@ -242,19 +348,18 @@ public:
     for (int i = 0; i < Cluster::procs * Cluster::blocksPerProc; i++) {
       // Check if the current block is mine, if so apply
       if (this->responsibilities[i].procId == Cluster::procId) {
-        int numElements = this->mySeqParts[myBlocksScanned].numElements;
-        T *curData = this->mySeqParts[myBlocksScanned].data;
-        for (int j = 0; j < numElements; j++) {
-          scan = combiner(scan, curData[j]);
-          curData[j] = scan;
-        }
+        applySeqScans(&(this->mySeqParts[myBlocksScanned]), combiner, scan, 
+          seqPartialReduces[myBlocksScanned]);
         myBlocksScanned++;
-      } else {
-        scan = combiner(scan, partialReduces[i]);
       }
+      scan = combiner(scan, partialReduces[i]);
     }
 
-    free(partialReduces);
+    delete[] partialReduces;
+    for (int part = 0; part < this->numParts; part++) {
+      delete[] seqPartialReduces[part];
+    }
+    delete[] seqPartialReduces;
     endMethod();
   }
 

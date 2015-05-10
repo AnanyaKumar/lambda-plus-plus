@@ -17,7 +17,7 @@ int main (int argc, char **argv) {
   Cluster::init(&argc, &argv);
 
   // paren test
-  // test_paren_match(100000000);
+  test_paren_match(10000000);
 
   // mandelbrot test
   // test_mandelbrot();
@@ -55,23 +55,23 @@ int main (int argc, char **argv) {
   //          iam, np, Cluster::procId, Cluster::procs);
   // }
 
-  // Toy example test
-  double start_time = CycleTimer::currentSeconds();
+  // // Toy example test
+  // double start_time = CycleTimer::currentSeconds();
 
-  // Hard work function
-  auto work = [](int i) {
-    int x = 0;
-    for (int j = 0; j < 20000; j++) {
-      x += i * j + j % 4;
-    }
-    return x;
-  };
+  // // Hard work function
+  // auto work = [](int i) {
+  //   int x = 0;
+  //   for (int j = 0; j < 20000; j++) {
+  //     x += i * j + j % 4;
+  //   }
+  //   return x;
+  // };
 
   // Addition combiner
   // auto combiner = [](int x, int y) { return x + y; };
 
   // Work Test
-  UberSequence<int> *s3 = new UberSequence<int>(work, 50000);
+  // UberSequence<int> *s3 = new UberSequence<int>(work, 50000);
   //
   // s3->print();
 
@@ -81,10 +81,10 @@ int main (int argc, char **argv) {
   //   x += s3->reduce(combiner, 0);
   // }
 
-  double total_time_parallel = CycleTimer::currentSeconds() - start_time;
+  // double total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
   // cout << "Answer: " << x << endl;
-  cout << total_time_parallel << endl;
+  // cout << total_time_parallel << endl;
 
   Cluster::close();
   return 0;

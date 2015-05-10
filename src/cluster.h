@@ -6,6 +6,7 @@ namespace Cluster {
   extern int procs;
   extern int procId;
   extern int blocksPerProc;
+  extern int threadsPerProc;
   void init (int *argc, char ***argv);
   void close ();
 };
