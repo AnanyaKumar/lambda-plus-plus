@@ -45,23 +45,33 @@ int main (int argc, char **argv) {
   //ParallelSequence<int> s2(identity, 1000);
   //s2.print();
 
+  int iam, np;
+
+  #pragma omp parallel
+  {
+    np = omp_get_num_threads();
+    iam = omp_get_thread_num();
+    printf("Hello from thread %d out of %d, in node %d out of %d\n",
+           iam, np, Cluster::procId, Cluster::procs);
+  }
+
   // Toy example test
-  double start_time = CycleTimer::currentSeconds();
+  // double start_time = CycleTimer::currentSeconds();
 
   // Hard work function
-  auto work = [](int i) {
-    int x = 0;
-    for (int j = 0; j < 20000; j++) {
-      x += i * j;
-    }
-    return x;
-  };
+  // auto work = [](int i) {
+  //   int x = 0;
+  //   for (int j = 0; j < 20000; j++) {
+  //     x += i * j;
+  //   }
+  //   return x;
+  // };
 
   // Addition combiner
   // auto combiner = [](int x, int y) { return x + y; };
 
   // Work Test
-  UberSequence<int> *s3 = new UberSequence<int>(work, 100000);
+  // UberSequence<int> *s3 = new UberSequence<int>(work, 100000);
   // s3->print();
 
   // Reduce Test
@@ -70,11 +80,10 @@ int main (int argc, char **argv) {
   //   x += s3->reduce(combiner, 0);
   // }
 
-  double total_time_parallel = CycleTimer::currentSeconds() - start_time;
+  // double total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
   // cout << "Answer: " << x << endl;
-  cout << total_time_parallel << endl;
-  delete s3;
+  // cout << total_time_parallel << endl;
 
   Cluster::close();
   return 0;
