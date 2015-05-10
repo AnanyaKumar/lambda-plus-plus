@@ -28,7 +28,7 @@ SRCS=$(SRCDIR)/main.cpp\
 
 OBJS=$(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 
-CXXFLAGS+=-O3 -std=c++11 -Wall #-Wextra
+CXXFLAGS+=-O3 -std=c++11 -Wall -openmp -fopenmp #-Wextra
 LDFLAGS+=-lpthread -lmpi -lmpi_cxx -Llib
 
 .PHONY: jobs
@@ -37,7 +37,7 @@ LDFLAGS+=-lpthread -lmpi -lmpi_cxx -Llib
 all : main
 
 run : main
-	LD_LIBRARY_PATH=./lib:$(LD_LIBRARY_PATH) $(MPIRUN) -np 12 main -s 10000000 -d norm -p 5
+	LD_LIBRARY_PATH=./lib:$(LD_LIBRARY_PATH) $(MPIRUN) -np 6 main -s 10000000 -d norm -p 5
 
 main: $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@

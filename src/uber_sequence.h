@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cassert>
 #include <mpi.h>
+#include <omp.h>
 
 #include "sequence.h"
 #include "cluster.h"
@@ -188,6 +189,7 @@ public:
     for (int part = 0; part < this->numParts; part++) {
       int startIndex = this->mySeqParts[part].startIndex;
       int numElements = this->mySeqParts[part].numElements;
+      #pragma omp parallel for
       for (int i = 0; i < numElements; i++) {
         this->mySeqParts[part].data[i] = generator(startIndex + i);
       }
