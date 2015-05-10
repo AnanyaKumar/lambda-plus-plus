@@ -238,10 +238,9 @@ class UberSequence : public Sequence<T>
     }
 
     // Free everything & Return
-    free(myPartialReduces);
-    free(recvbuf);
-    free(recvcounts);
-    free(displs);
+    delete[] recvbuf;
+    delete[] recvcounts;
+    delete[] displs;
     return partialReduces;
   }
 
@@ -326,6 +325,7 @@ public:
       value = combiner(value, partialReduces[i]);
     }
 
+    delete[] myPartialReduces;
     delete[] partialReduces;
     endMethod();
     return value;
@@ -355,6 +355,7 @@ public:
       scan = combiner(scan, partialReduces[i]);
     }
 
+    delete[] myPartialReduces;
     delete[] partialReduces;
     for (int part = 0; part < this->numParts; part++) {
       delete[] seqPartialReduces[part];
