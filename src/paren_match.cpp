@@ -80,35 +80,35 @@ void test_paren_match(int n) {
         << total_time_serial << std::endl;
     }
 
-    // ----- Serial test -----
-    SerialSequence<int> seq1 = SerialSequence<int>(generators[i], n);
-    start_time = CycleTimer::currentSeconds();
-    rc = paren_match(seq1);
-    total_time_serial = CycleTimer::currentSeconds() - start_time;
+    // // ----- Serial test -----
+    // SerialSequence<int> seq1 = SerialSequence<int>(generators[i], n);
+    // start_time = CycleTimer::currentSeconds();
+    // rc = paren_match(seq1);
+    // total_time_serial = CycleTimer::currentSeconds() - start_time;
 
-    result = rc == expecteds[i] ? "PASS" : "FAIL";
-    if (Cluster::procId == 0) {
-      std::cout << "[" << result << "] Test " << i << " (sequential): "
-        << total_time_serial << std::endl;
-    }
+    // result = rc == expecteds[i] ? "PASS" : "FAIL";
+    // if (Cluster::procId == 0) {
+    //   std::cout << "[" << result << "] Test " << i << " (sequential): "
+    //     << total_time_serial << std::endl;
+    // }
 
-    // ----- Parallel test -----
-    UberSequence<int> seq2 = UberSequence<int>(generators[i], n);
-    start_time = CycleTimer::currentSeconds();
-    rc = paren_match(seq2);
-    total_time_parallel = CycleTimer::currentSeconds() - start_time;
+    // // ----- Parallel test -----
+    // UberSequence<int> seq2 = UberSequence<int>(generators[i], n);
+    // start_time = CycleTimer::currentSeconds();
+    // rc = paren_match(seq2);
+    // total_time_parallel = CycleTimer::currentSeconds() - start_time;
 
-    result = rc == expecteds[i] ? "PASS" : "FAIL";
-    if (Cluster::procId == 0) {
-      std::cout << "[" << result << "] Test " << i << " (parallel): "
-        << total_time_parallel << std::endl;
-      }
+    // result = rc == expecteds[i] ? "PASS" : "FAIL";
+    // if (Cluster::procId == 0) {
+    //   std::cout << "[" << result << "] Test " << i << " (parallel): "
+    //     << total_time_parallel << std::endl;
+    //   }
 
-    // ----- Speedup -----
-    if (Cluster::procId == 0) {
-      std::cout << "Speedup: "
-        << total_time_serial / total_time_parallel << std::endl;
-    }
+    // // ----- Speedup -----
+    // if (Cluster::procId == 0) {
+    //   std::cout << "Speedup: "
+    //     << total_time_serial / total_time_parallel << std::endl;
+    // }
   }
 }
 

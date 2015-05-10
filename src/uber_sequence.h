@@ -17,7 +17,7 @@ struct Responsibility
   int procId;
   int startIndex;
   int numElements;
-  MPI_Win data_window;
+  // MPI_Win data_window;
 };
 
 /** Used to store the parts of the sequence the node is responsible for **/
@@ -64,18 +64,18 @@ class UberSequence : public Sequence<T>
     this->mySeqParts = new SeqPart<T>[this->numParts];
     for (int i = 0; i < this->numResponsibilities; i++) {
       if (this->responsibilities[i].procId != Cluster::procId) {
-        MPI_Win_create(NULL, 0, sizeof(T), MPI_INFO_NULL, MPI_COMM_WORLD, 
-          &responsibilities[i].data_window);
-        MPI_Win_fence(0, responsibilities[i].data_window);
+        // MPI_Win_create(NULL, 0, sizeof(T), MPI_INFO_NULL, MPI_COMM_WORLD, 
+        //   &responsibilities[i].data_window);
+        // MPI_Win_fence(0, responsibilities[i].data_window);
       } else {
         int numElements = this->responsibilities[i].numElements;
         this->mySeqParts[curPart].startIndex = this->responsibilities[i].startIndex;
         this->mySeqParts[curPart].numElements = numElements;
         this->mySeqParts[curPart].data = new T[numElements];
         curPart++;
-        MPI_Win_create(this->mySeqParts[curPart].data, numElements * sizeof(T), sizeof(T),
-          MPI_INFO_NULL, MPI_COMM_WORLD, &responsibilities[i].data_window);
-        MPI_Win_fence(0, responsibilities[i].data_window);
+        // MPI_Win_create(this->mySeqParts[curPart].data, numElements * sizeof(T), sizeof(T),
+        //   MPI_INFO_NULL, MPI_COMM_WORLD, &responsibilities[i].data_window);
+        // MPI_Win_fence(0, responsibilities[i].data_window);
       }
     }
   }
@@ -94,7 +94,7 @@ class UberSequence : public Sequence<T>
     delete[] this->mySeqParts;
     int totalBlocks = Cluster::procs * Cluster::blocksPerProc;
     for (int i = 0; i < totalBlocks; i++) {
-      MPI_Win_free(&(responsibilities[i].data_window));
+      // MPI_Win_free(&(responsibilities[i].data_window));
     }
   }
 
