@@ -23,11 +23,11 @@ int main (int argc, char **argv) {
   // test_mandelbrot();
 
   // {
-    // auto identity = [](int i) { return i; };
-    // UberSequence<int> *s = new UberSequence<int>(identity, 100);
+    auto identity = [](int i) { return i; };
+    UberSequence<int> *s = new UberSequence<int>(identity, 100);
     // auto combiner = [](int x, int y) { return x + y; };
     // s->scan(combiner, 0);
-    // s->print();
+    s->print();
     // cout << s->get(8) << endl;
     // int x = s->reduce(combiner, 0);
     // cout << x << endl;
@@ -45,15 +45,15 @@ int main (int argc, char **argv) {
   //ParallelSequence<int> s2(identity, 1000);
   //s2.print();
 
-  int iam, np;
+  // int iam, np;
 
-  #pragma omp parallel
-  {
-    np = omp_get_num_threads();
-    iam = omp_get_thread_num();
-    printf("Hello from thread %d out of %d, in node %d out of %d\n",
-           iam, np, Cluster::procId, Cluster::procs);
-  }
+  // #pragma omp parallel
+  // {
+  //   np = omp_get_num_threads();
+  //   iam = omp_get_thread_num();
+  //   printf("Hello from thread %d out of %d, in node %d out of %d\n",
+  //          iam, np, Cluster::procId, Cluster::procs);
+  // }
 
   // Toy example test
   // double start_time = CycleTimer::currentSeconds();
