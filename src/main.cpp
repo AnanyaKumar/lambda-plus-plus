@@ -17,7 +17,7 @@ int main (int argc, char **argv) {
   Cluster::init(&argc, &argv);
 
   // paren test
-  test_paren_match(10000000);
+  test_paren_match(2000000000);
 
   // mandelbrot test
   // test_mandelbrot();
