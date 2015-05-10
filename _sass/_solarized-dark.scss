@@ -318,10 +318,19 @@ $literalnumberintegerlong: $cyan;
   }
 }
 
-p > code {
+code {
   padding: 2px 6px;
   font-size: 0.8em;
   background: $background;
   color: $default;
   border-radius: 3px;
+  white-space: nowrap;
+}
+
+pre code {
+  padding: 0px;
+  color: inherit;
+  white-space: pre;
+  white-space: pre-wrap;
+  background-color: transparent;
 }
