@@ -39,11 +39,11 @@ public:
   }
 
   template<typename S>
-  SerialSequence<S> map(function<S(T)> mapper) {
+  SerialSequence<S> *map(function<S(T)> mapper) {
     auto tabulateFunction = [&](int index) {
-      return mapper(this.get(index));
+      return mapper(this->get(index));
     };
-    SerialSequence<S> seq = new SerialSequence<S>(tabulateFunction, this->size);
+    SerialSequence<S> *seq = new SerialSequence<S>(tabulateFunction, this->size);
     return seq;
   }
 
@@ -73,12 +73,12 @@ public:
   }
 
   void print () {
-    int i;
-    for (i = 0; i < this->size; i++) {
-      std::cout << this->data[i] <<  " ";
-      if (i % 10 == 9) std::cout << std::endl;
-    }
-    if (i % 10 != 9) std::cout << std::endl;
+    //int i;
+    //for (i = 0; i < this->size; i++) {
+    //  std::cout << this->data[i] <<  " ";
+    //  if (i % 10 == 9) std::cout << std::endl;
+    //}
+    //if (i % 10 != 9) std::cout << std::endl;
   }
 };
 

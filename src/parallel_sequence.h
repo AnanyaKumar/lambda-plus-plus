@@ -134,7 +134,7 @@ public:
   }
 
   template<typename S>
-  ParallelSequence<S> map(function<S(T)> mapper) {
+  ParallelSequence<S> *map(function<S(T)> mapper) {
     auto nop = [](int _) {
       return 42;
     };

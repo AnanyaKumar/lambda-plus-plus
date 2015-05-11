@@ -13,18 +13,17 @@ using namespace std;
 template<typename T>
 class Sequence
 {
-protected:
+public:
   // Data stored by the current node
   T* data;
 
   // Common information about the Sequence
   int size;
 
-public:
   virtual void transform(function<T(T)> mapper) = 0;
 
   template<typename S>
-  Sequence<S> map(function<S(T)> mapper);
+  Sequence<S> *map(function<S(T)> mapper);
 
   virtual T reduce (function<T(T,T)> combiner, T init) = 0;
   virtual void scan (function<T(T,T)> combiner, T init) = 0;

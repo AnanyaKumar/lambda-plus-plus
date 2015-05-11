@@ -13,8 +13,8 @@
 
 using namespace std;
 
-#define RANDOMIZE_WORK false // Randomly allocated blocks to nodes (instead of interleaving)
-#define ADJUST_WORK false // Gives faster nodes more work
+#define RANDOMIZE_WORK true // Randomly allocated blocks to nodes (instead of interleaving)
+#define ADJUST_WORK true // Gives faster nodes more work
 
 /** Used to store which parts of the sequence each node in the cluster is responsible for **/
 struct Responsibility
@@ -22,7 +22,6 @@ struct Responsibility
   int procId;
   int startIndex;
   int numElements;
-  // MPI_Win data_window;
 };
 
 /** Used to store the parts of the sequence the current node is responsible for **/
@@ -38,6 +37,7 @@ struct SeqPart
 template<typename T>
 class UberSequence : public Sequence<T>
 {
+public:
   int numResponsibilities;
   Responsibility *responsibilities;
   int numParts;
@@ -133,18 +133,12 @@ class UberSequence : public Sequence<T>
     this->mySeqParts = new SeqPart<T>[this->numParts];
     for (int i = 0; i < this->numResponsibilities; i++) {
       if (this->responsibilities[i].procId != Cluster::procId) {
-        // MPI_Win_create(NULL, 0, sizeof(T), MPI_INFO_NULL, MPI_COMM_WORLD, 
-        //   &responsibilities[i].data_window);
-        // MPI_Win_fence(0, responsibilities[i].data_window);
       } else {
         int numElements = this->responsibilities[i].numElements;
         this->mySeqParts[curPart].startIndex = this->responsibilities[i].startIndex;
         this->mySeqParts[curPart].numElements = numElements;
         this->mySeqParts[curPart].data = new T[numElements];
         curPart++;
-        // MPI_Win_create(this->mySeqParts[curPart].data, numElements * sizeof(T), sizeof(T),
-        //   MPI_INFO_NULL, MPI_COMM_WORLD, &responsibilities[i].data_window);
-        // MPI_Win_fence(0, responsibilities[i].data_window);
       }
     }
   }
@@ -161,10 +155,6 @@ class UberSequence : public Sequence<T>
       delete[] this->mySeqParts[i].data;
     }
     delete[] this->mySeqParts;
-    // int totalBlocks = Cluster::procs * Cluster::blocksPerProc;
-    // for (int i = 0; i < totalBlocks; i++) {
-    //   MPI_Win_free(&(responsibilities[i].data_window));
-    // }
     delete[] this->responsibilities;
   }
 
@@ -309,8 +299,8 @@ class UberSequence : public Sequence<T>
     // Compute receive counts, displacements for AllGatherV
     int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
     T *recvbuf = new T[totalBlocks];
-    T *recvcounts = new T[Cluster::procs]; // Note, this is in BYTES
-    T *displs = new T[Cluster::procs]; // Note, this is in BYTES
+    int *recvcounts = new int[Cluster::procs]; // Note, this is in BYTES
+    int *displs = new int[Cluster::procs]; // Note, this is in BYTES
     for (int i = 0; i < Cluster::procs; i++) {
       recvcounts[i] = Cluster::blocksPerProc * sizeof(T);
       displs[i] = i * Cluster::blocksPerProc * sizeof(T);
@@ -356,7 +346,12 @@ class UberSequence : public Sequence<T>
     return getPartialReduces(myPartialReduces);
   }
 
-public:
+  /** API Functions **/
+
+  UberSequence () {
+
+  }
+
   UberSequence (T *array, int n) {
     initialize(n);
     for (int part = 0; part < this->numParts; part++) {
@@ -387,6 +382,31 @@ public:
     destroy();
   }
 
+  template<typename S>
+  UberSequence<S> *map(function<S(T)> mapper) {
+    UberSequence<S> *newSeq = new UberSequence<S>;
+    newSeq->size = this->size;
+    newSeq->numResponsibilities = this->numResponsibilities;
+    int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
+    newSeq->responsibilities = new Responsibility[totalBlocks];
+    for (int block = 0; block < numResponsibilities; block++) {
+      newSeq->responsibilities[block].procId = this->responsibilities[block].procId;
+      newSeq->responsibilities[block].startIndex = this->responsibilities[block].startIndex;
+      newSeq->responsibilities[block].numElements = this->responsibilities[block].numElements;
+    }
+    newSeq->numParts = this->numParts;
+    newSeq->allocateSeqParts();
+    newSeq->numThreadBlocks = this->numThreadBlocks;
+    for (int part = 0; part < this->numParts; part++) {
+      int numElements = this->mySeqParts[part].numElements;
+      for (int i = 0; i < numElements; i++) {
+        newSeq->mySeqParts[part].data[i] = mapper(this->mySeqParts[part].data[i]);
+      }
+    }
+    endMethod();
+    return newSeq;
+  }
+
   void transform (function<T(T)> mapper) {
     for (int part = 0; part < this->numParts; part++) {
       int numElements = this->mySeqParts[part].numElements;
@@ -396,14 +416,6 @@ public:
       }
     }
     endMethod();
-  }
-
-  template<typename S>
-  UberSequence<S> map(function<S(T)> mapper) {
-    auto nop = [](int _) {
-      return 42;
-    };
-    return UberSequence<S>(nop, 0);
   }
 
   T reduce (function<T(T,T)> combiner, T init) {
@@ -470,43 +482,31 @@ public:
 
     // Hack, only works if you call get from outside the sequence library
     MPI_Bcast(&value, sizeof(T), MPI_BYTE, nodeWithIndex, MPI_COMM_WORLD);
-
-    // Use window to set element in the right node
-    // T value = 5;
-    // if (Cluster::procId != 0) {
-    //   MPI_Get(&value, sizeof(T), MPI_BYTE, 0,
-    //       0, sizeof(T), MPI_BYTE, this->responsibilities[0].data_window);
-    // } else {
-    //   value = this->mySeqParts[0].data[1];
-    // }
-    // MPI_Win_fence(0, this->responsibilities[0].data_window);
-    // // MPI_Win_fence(0, this->responsibilities[0].data_window);
     return value;
   }
 
   void set (int index, T value) {
-    // MPI_Put(&value, sizeof(T), MPI_BYTE, getNodeWithData(index),
-    //     getDataDisp(index), sizeof(T), MPI_BYTE, data_window);
-    // MPI_Win_fence(0, data_window);
+
   }
 
   /** For debugging purposes **/
   void print () {
-    cout << "Node " << (Cluster::procId + 1)
-         << "/"     << Cluster::procs << ":" << endl;
-    for (int part = 0; part < this->numParts; part++) {
-      int startIndex = this->mySeqParts[part].startIndex;
-      int numElements = this->mySeqParts[part].numElements;
-      cout << "Part " << part+1 << "/" << this->numParts <<  ": Elements "
-           << startIndex << " to " << startIndex + numElements << endl;
-      int i;
-      for (i = 0; i < numElements; i++) {
-        cout << this->mySeqParts[part].data[i] << " ";
-        if (i % 10 == 9) cout << endl;
-      }
-      if (i % 10 != 0) cout << endl;
-    }
-    cout << endl;
+    // Issue: doesn't work for some data types
+    // cout << "Node " << (Cluster::procId + 1)
+    //      << "/"     << Cluster::procs << ":" << endl;
+    // for (int part = 0; part < this->numParts; part++) {
+    //   int startIndex = this->mySeqParts[part].startIndex;
+    //   int numElements = this->mySeqParts[part].numElements;
+    //   cout << "Part " << part+1 << "/" << this->numParts <<  ": Elements "
+    //        << startIndex << " to " << startIndex + numElements << endl;
+    //   int i;
+    //   for (i = 0; i < numElements; i++) {
+    //     cout << this->mySeqParts[part].data[i] << " ";
+    //     if (i % 10 == 9) cout << endl;
+    //   }
+    //   if (i % 10 != 0) cout << endl;
+    // }
+    // cout << endl;
     endMethod();
   }
 
