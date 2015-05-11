@@ -182,7 +182,6 @@ with you.
 This site is still a work in progress! We'll be revising it with more up-to-date
 information soon, so be sure to check back!
 
-[speedup]: {{ "/img/speedup.png" | prepend: site.baseurl }}
 [ghc-speedup]: {{ "/img/ghc-speedup.png" | prepend: site.baseurl }}
 [ghc-speedup-wb]: {{ "/img/ghc-speedup-wb.png" | prepend: site.baseurl }}
 [latedays-speedup-mandelbrot]: {{ "/img/latedays-speedup-mandelbrot.png" | prepend: site.baseurl }}
