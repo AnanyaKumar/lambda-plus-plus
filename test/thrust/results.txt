@@ -1,0 +1,30 @@
+❯ mandelbrot 750000 1000
+[mandelbrot parallel]:          [260.653] ms
+
+❯ mandelbrot 75000 1000
+[mandelbrot parallel]:          [188.585] ms
+
+❯ mandelbrot 7500 1000
+[mandelbrot parallel]:          [171.931] ms
+
+❯ mandelbrot 750 1000
+[mandelbrot parallel]:          [171.283] ms
+
+❯ paren_match 20000000
+[paren_match parallel]:         [5.402] ms
+[paren_match parallel]:         [3.398] ms
+[paren_match parallel]:         [3.495] ms
+[paren_match parallel]:         [3.426] ms
+
+❯ paren_match 2000000
+[paren_match parallel]:         [0.857] ms
+[paren_match parallel]:         [0.781] ms
+[paren_match parallel]:         [0.772] ms
+[paren_match parallel]:         [0.774] ms
+
+❯ paren_match 200000
+[paren_match parallel]:         [0.602] ms
+[paren_match parallel]:         [0.506] ms
+[paren_match parallel]:         [0.517] ms
+[paren_match parallel]:         [0.505] ms
+
