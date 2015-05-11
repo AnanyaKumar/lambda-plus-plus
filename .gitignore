@@ -4,3 +4,6 @@ tags
 .*.sw[nop]
 *.o
 main
+
+mandelbrot
+paren_match
