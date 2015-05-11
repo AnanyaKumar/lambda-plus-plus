@@ -28,19 +28,21 @@ analyses, we implemented a subset of the `SEQUENCE` functions, including
 - `scan`
 - `tabulate`, implemented as a C++ constructor
 
-all of which operate on arbitrary functions of arbitrary types, as well as
+as well as
 
 - `transform`, an in-place `map`
 - `get` and `set`, which load and modify (respectively) the value at an index
 
-These operations are all computationally expensive while being well-suited to
-parallelization. Operations like `map`, `tabulate`, and `transform` are
-completely data parallel. However since they take in arbitrary functions, it's
-possible for the workers to diverge in the amount of work done per input, so we
-put in extra effort to balance the load across workers to equalize these
-divergences. We took a similar approach with `reduce` and `scan`, though these
-functions have a larger proportion of serial work load (i.e., they have
-logarithmic span).
+All of these operations take in arbitrary functions (thanks to C++11's new
+syntax for lambda functions) and work with arbitrary types (due to C++'s
+template system).
+
+Operations like `map`, `tabulate`, and `transform` are completely data parallel.
+However since they take in arbitrary functions, it's possible for the workers to
+diverge in the amount of work done per input, so we put in extra effort to
+balance the load across workers to equalize these divergences. We took a similar
+approach with `reduce` and `scan`, though these functions have a larger
+proportion of serial work load (i.e., they have logarithmic span).
 
 
 ## Approach
@@ -92,16 +94,31 @@ achieve the optimal speedups on a cluster, we turned our attention to seeing how
 well it compared to alternative parallel frameworks, in particular CUDA and
 Thrust.
 
-To our dismay, a very simple port of our `paren_match` and `mandelbrot`
-implementations to Thrust achieved much better results than our cluster-wide
-implementation.
+For all of our comparisons, we used 4 nodes on Latedays with the `UberSequence`
+implementation, and the NVIDIA GTX 780 on ghc41.
 
-<!--
-  TODO
+Here's a chart comparing the results of both the `paren_match` and `mandelbrot`
+tests for each platform:
 
-  Jake, create graphs for comparing the Thrust speedups vs Lambda++ speedups
-  once you get back online.
-  -->
+[![][thrust-speedup]][thrust-speedup]
+
+In this graph, taller bars are better, as we're comparing the time a given
+implementation took to run vs. the time the `UberSequence` implementation took
+to run (explaining why `UberSequence` is always 1).
+
+Notice that the Lambda++ implementation of `paren_match` was much faster than on
+the GPU, whereas the `mandelbrot` was close but Thrust won by a slight margin.
+We can attribute this to the fact that GPUs are really good at running SIMD,
+which is a pretty accurate description of what's going on in Mandelbrot
+generation. However, when it comes to reductions, Lambda++ is faster because it
+can move work around nodes as well as parallelize the reduction within a node
+for decreased communication overall.
+
+All in all, these results indicate that Lambda++ is a competitive choice for
+certain types of applications, though it's worthwhile to note that this is a
+cluster of 4 machines vs a single machine with a GPU. It will heavily depend on
+circumstances to determine whether this tradeoff is worth the potential
+performance benefit.
 
 
 ## References
@@ -137,3 +154,4 @@ both had a great time working on Lambda++ and are proud of how it turned out!
 [ghc-speedup-wb]: {{ "/img/ghc-speedup-wb.png" | prepend: site.baseurl }}
 [latedays-speedup-mandelbrot]: {{ "/img/latedays-speedup-mandelbrot.png" | prepend: site.baseurl }}
 [latedays-speedup-paren]: {{ "/img/latedays-speedup-paren.png" | prepend: site.baseurl }}
+[thrust-speedup]: {{ "/img/thrust-speedup.png" | prepend: site.baseurl }}
