@@ -1,8 +1,10 @@
 #ifndef _UBER_SEQUENCE_H_
 #define _UBER_SEQUENCE_H_
 
+#include <algorithm>
 #include <iostream>
 #include <cassert>
+#include <ctime>
 #include <mpi.h>
 #include <omp.h>
 
@@ -11,7 +13,10 @@
 
 using namespace std;
 
-/** Used to store which parts of the sequence each node is responsible for **/
+#define RANDOMIZE_WORK false // Randomly allocated blocks to nodes (instead of interleaving)
+#define ADJUST_WORK false // Gives faster nodes more work
+
+/** Used to store which parts of the sequence each node in the cluster is responsible for **/
 struct Responsibility
 {
   int procId;
@@ -20,7 +25,7 @@ struct Responsibility
   // MPI_Win data_window;
 };
 
-/** Used to store the parts of the sequence the node is responsible for **/
+/** Used to store the parts of the sequence the current node is responsible for **/
 template<typename T>
 struct SeqPart
 {
@@ -39,26 +44,90 @@ class UberSequence : public Sequence<T>
   SeqPart<T> *mySeqParts;
   int numThreadBlocks;
 
+  /** Figure out which nodes are responsible for which parts of the sequence **/
   void computeResponsibilities () {
     int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
     this->numResponsibilities = totalBlocks;
     this->numParts = Cluster::blocksPerProc;
     this->responsibilities = new Responsibility[totalBlocks];
 
-    int blockSize = this->size / totalBlocks;
-    int numLeftOverElements = this->size % totalBlocks;
+    // Interleave blocks amongst nodes
+    int *partToNodeMap = new int[totalBlocks];
+    for (int part = 0; part < totalBlocks; part++) {
+      partToNodeMap[part] = part % Cluster::procs;
+    }
+
+    if (RANDOMIZE_WORK) {
+      // Ensure that all nodes have the same seed for the subsequent random shuffle
+      time_t seed;
+      if (Cluster::procId == 0) {
+        seed = time(NULL);
+      }
+      MPI_Bcast(&seed, sizeof(time_t), MPI_BYTE, 0, MPI_COMM_WORLD);
+      srand(seed);
+
+      // Randomly shuffle chunks representing who's responsible for what    
+      auto myRandom = [](int i) { 
+        return rand() % i;
+      };
+      random_shuffle(partToNodeMap, partToNodeMap + totalBlocks, myRandom);
+    }
+
+    // Determine the sizes of the responsibilities
+    if (ADJUST_WORK) {
+      int elementsCovered = 0;
+      for (int block = 0; block < totalBlocks; block++) {
+        int procId = partToNodeMap[block];
+        this->responsibilities[block].numElements = (Cluster::procTimes[procId] * this->size) / 
+          (Cluster::blocksPerProc * Cluster::systemTime);
+        // For correctness, some functions require that every block has one element
+        if (this->responsibilities[block].numElements < 1) {
+          this->responsibilities[block].numElements = 1;
+        }
+        elementsCovered += this->responsibilities[block].numElements;
+      }
+      int elementsLeft = this->size - elementsCovered;
+
+      // Make sure the blocks sum up to the total size
+      int block = 0;
+      while (elementsLeft > 0) {
+        this->responsibilities[block].numElements++;
+        block = (block + 1) % totalBlocks;
+        elementsLeft--;
+      }
+      while (elementsLeft < 0) {
+        if (this->responsibilities[block].numElements > 1) {
+          this->responsibilities[block].numElements--;
+          elementsLeft++;
+        }
+        block = (block + 1) % totalBlocks;
+      }
+    } else {
+      int blockSize = this->size / totalBlocks;
+      int numLeftOverElements = this->size % totalBlocks;
+      for (int block = 0; block < totalBlocks; block++) {
+        int procId = partToNodeMap[block];
+        this->responsibilities[block].numElements = (block < numLeftOverElements ? 
+          blockSize + 1 : blockSize);
+      }
+    }
+
+    // Assign responsibilities
     int curStartIndex = 0;
-    for (int i = 0; i < totalBlocks; i++) {
-      this->responsibilities[i].procId = i % Cluster::procs;
-      this->responsibilities[i].startIndex = curStartIndex;
-      this->responsibilities[i].numElements = (i < numLeftOverElements ? blockSize + 1 : blockSize);
-      curStartIndex += this->responsibilities[i].numElements;
-      if (this->responsibilities[i].numElements < 1) {
+    for (int block = 0; block < totalBlocks; block++) {
+      this->responsibilities[block].procId = partToNodeMap[block];
+      this->responsibilities[block].startIndex = curStartIndex;
+      curStartIndex += this->responsibilities[block].numElements;
+      if (this->responsibilities[block].numElements < 1) {
         cout << "Warning: Sequence library not verified for small sequences." << endl;
       }
     }
+
+    // Clean up
+    delete[] partToNodeMap;
   }
 
+  /** Allocate sequence parts based on the work that has been assigned to the current node **/
   void allocateSeqParts () {
     int curPart = 0;
     this->mySeqParts = new SeqPart<T>[this->numParts];
@@ -92,12 +161,14 @@ class UberSequence : public Sequence<T>
       delete[] this->mySeqParts[i].data;
     }
     delete[] this->mySeqParts;
-    int totalBlocks = Cluster::procs * Cluster::blocksPerProc;
-    for (int i = 0; i < totalBlocks; i++) {
-      // MPI_Win_free(&(responsibilities[i].data_window));
-    }
+    // int totalBlocks = Cluster::procs * Cluster::blocksPerProc;
+    // for (int i = 0; i < totalBlocks; i++) {
+    //   MPI_Win_free(&(responsibilities[i].data_window));
+    // }
+    delete[] this->responsibilities;
   }
 
+  /** Find which node has the element indexed by 'index' **/
   int getNodeWithData (int index) {
     // Get the node for the index
     int nodeWithIndex = 0;
@@ -112,7 +183,8 @@ class UberSequence : public Sequence<T>
     return nodeWithIndex;
   }
 
-  /** Assumes the current node has the index **/
+  /** Assumes the current node has the element index by 'index'
+      Otherwise, kills itself to prevent programming screwups **/
   T getData (int index) {
     for (int part = 0; part < this->numParts; part++) {
       int startIndex = this->mySeqParts[part].startIndex;
@@ -126,10 +198,15 @@ class UberSequence : public Sequence<T>
     return x;
   }
 
+  /** Call this at the end of every method **/
   void endMethod () {
     MPI_Barrier(MPI_COMM_WORLD);
   }
 
+  /** Gets reduces for each thread block in the sequence part
+      E.g. if the sequence part is (1, 3, 5, 2, 8, 1) and there are 2 thread blocks
+           then the sequence reduces are 9 and 11 for each block.
+      Warning: seqPartialReduces is indexed abnormally to avoid false sharing **/
   T *getSeqPartialReduces (SeqPart<T> *seqPart, function<T(T,T)> combiner) {
     int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
     T *seqPartialReduces = new T[this->numThreadBlocks * indexScaling];
@@ -148,19 +225,24 @@ class UberSequence : public Sequence<T>
       } else {
         startIndex = threadId * equalSplit + numLeftOverElements;
       }
-      int myNumElements = equalSplit + myLeftOver;
+      if (startIndex < seqPart->numElements) {
+        int myNumElements = equalSplit + myLeftOver;
 
-      // Compute my partial reduce
-      int threadIdx = threadId * indexScaling;
-      seqPartialReduces[threadIdx] = seqPart->data[startIndex];
-      for (int i = 1; i < myNumElements; i++) {
-        seqPartialReduces[threadIdx] = combiner(seqPartialReduces[threadIdx], 
-          seqPart->data[startIndex + i]);
+        // Compute my partial reduce
+        int threadIdx = threadId * indexScaling;
+        seqPartialReduces[threadIdx] = seqPart->data[startIndex];
+        for (int i = 1; i < myNumElements; i++) {
+          seqPartialReduces[threadIdx] = combiner(seqPartialReduces[threadIdx], 
+            seqPart->data[startIndex + i]);
+        }
       }
     }
     return seqPartialReduces;
   }
 
+  /** Makes the partial reduces into partial scans
+      E.g. (0, 1, 3, 6) becomes (0, 1, 4, 10)
+      Warning: seqPartialReduces is indexed abnormally to avoid false sharing **/
   void makeSeqPartialScans (T *seqPartialReduces, function<T(T,T)> combiner) {
     int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
     for (int i = 1; i < this->numThreadBlocks; i++) {
@@ -169,6 +251,11 @@ class UberSequence : public Sequence<T>
     }
   }
 
+  /** Let's say seqPart is (1, 4, 2, 8, 9, 11), there are 3 thread blocks, and combiner is +
+      init is the scan to the start of the sequence part (let's say it's 5)
+      seqPartialScans is (5, 10, 20)
+      Then seqPart will be transformed to (5+1, 5+1+4, 5+1+4+2, 5+1+4+2+8, ...)
+      In effect 'applying' the scan to the sequence part **/
   void applySeqScans (SeqPart<T> *seqPart, function<T(T,T)> combiner, T init, T *seqPartialScans) {
     int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
     #pragma omp parallel
@@ -188,30 +275,36 @@ class UberSequence : public Sequence<T>
       }
       int myNumElements = equalSplit + myLeftOver;
 
-      // Compute my scans
-      int threadIdx = threadId * indexScaling;
-      T scan;
-      if (threadId == 0) {
-        scan = init;
-      } else {
-        scan = combiner(init, seqPartialScans[threadIdx - indexScaling]);
-      }
-      for (int i = 0; i < myNumElements; i++) {
-        scan = combiner(scan, seqPart->data[startIndex + i]);
-        seqPart->data[startIndex + i] = scan;
+      if (startIndex < seqPart->numElements) {
+        // Compute my scans
+        int threadIdx = threadId * indexScaling;
+        T scan;
+        if (threadId == 0) {
+          scan = init;
+        } else {
+          scan = combiner(init, seqPartialScans[threadIdx - indexScaling]);
+        }
+        for (int i = 0; i < myNumElements; i++) {
+          scan = combiner(scan, seqPart->data[startIndex + i]);
+          seqPart->data[startIndex + i] = scan;
+        }
       }
     }
   }
 
-  T getSeqReduce (T *seqPartialReduces, function<T(T,T)> combiner) {
+  /** Returns combiner(seqPartialReduces[0], combiner(seqPartialReduces[0], ...)) **/
+  T getSeqReduce (SeqPart<T> *seqPart, T *seqPartialReduces, function<T(T,T)> combiner) {
     int indexScaling = 64 / sizeof(T); // Scale all indices to prevent false sharing
     T reduce = seqPartialReduces[0];
-    for (int i = 1; i < this->numThreadBlocks; i++) {
+    for (int i = 1; i < min(this->numThreadBlocks, seqPart->numElements); i++) {
       reduce = combiner(reduce, seqPartialReduces[i * indexScaling]);
     }
     return reduce;
   }
 
+  /** Given reduced values for each sequence part in the current node, in order
+      Returns an ordered list of reduced values for each entry in responsibilities
+        (from accross the cluster) **/
   T *getPartialReduces (T *myPartialReduces) {
     // Compute receive counts, displacements for AllGatherV
     int totalBlocks = Cluster::blocksPerProc * Cluster::procs;
@@ -228,13 +321,15 @@ class UberSequence : public Sequence<T>
     MPI_Allgatherv(myPartialReduces, this->numParts * sizeof(T), MPI_BYTE, 
       recvbuf, recvcounts, displs, MPI_BYTE, MPI_COMM_WORLD);
 
-    // Sort the receive buffer into the correct order (hack, assumes that nodes' data is interleaved)
+    // Sort the receive buffer into the correct order to get partialReduces
     T *partialReduces = new T[totalBlocks];
+    int reduceCounts[Cluster::procs];
+    fill(reduceCounts, reduceCounts + Cluster::procs, 0);
     for (int i = 0; i < totalBlocks; i++) {
-      int procNum = i / Cluster::blocksPerProc;
-      int procDisp = i % Cluster::blocksPerProc;
-      int index = procDisp * Cluster::procs + procNum;
-      partialReduces[index] = recvbuf[i];
+      int procId = responsibilities[i].procId;
+      int recvIndex = Cluster::blocksPerProc * procId + reduceCounts[procId];
+      reduceCounts[procId]++;
+      partialReduces[i] = recvbuf[recvIndex];
     }
 
     // Free everything & Return
@@ -244,6 +339,8 @@ class UberSequence : public Sequence<T>
     return partialReduces;
   }
 
+  /** Returns an ordered list of reduced values for each entry in responsibilities
+        (from accross the cluster) **/
   T *getPartialReduces (function<T(T,T)> combiner) {
     // Get all my partial results (sendbuf). Note assumes each part has >= 1 element.
     T *myPartialReduces = new T[this->numParts];
@@ -313,7 +410,7 @@ public:
     T *myPartialReduces = new T[this->numParts];
     for (int part = 0; part < this->numParts; part++) {
       T *seqPartialReduces = getSeqPartialReduces(&(this->mySeqParts[part]), combiner);
-      myPartialReduces[part] = getSeqReduce(seqPartialReduces, combiner);
+      myPartialReduces[part] = getSeqReduce(&(this->mySeqParts[part]), seqPartialReduces, combiner);
       delete[] seqPartialReduces;
     }
 
@@ -336,7 +433,7 @@ public:
     T **seqPartialReduces = new T*[this->numParts];
     for (int part = 0; part < this->numParts; part++) {
       seqPartialReduces[part] = getSeqPartialReduces(&(this->mySeqParts[part]), combiner);
-      myPartialReduces[part] = getSeqReduce(seqPartialReduces[part], combiner);
+      myPartialReduces[part] = getSeqReduce(&(this->mySeqParts[part]), seqPartialReduces[part], combiner);
       makeSeqPartialScans(seqPartialReduces[part], combiner);
     }
 
@@ -374,6 +471,7 @@ public:
     // Hack, only works if you call get from outside the sequence library
     MPI_Bcast(&value, sizeof(T), MPI_BYTE, nodeWithIndex, MPI_COMM_WORLD);
 
+    // Use window to set element in the right node
     // T value = 5;
     // if (Cluster::procId != 0) {
     //   MPI_Get(&value, sizeof(T), MPI_BYTE, 0,
@@ -392,6 +490,7 @@ public:
     // MPI_Win_fence(0, data_window);
   }
 
+  /** For debugging purposes **/
   void print () {
     cout << "Node " << (Cluster::procId + 1)
          << "/"     << Cluster::procs << ":" << endl;
@@ -405,10 +504,21 @@ public:
         cout << this->mySeqParts[part].data[i] << " ";
         if (i % 10 == 9) cout << endl;
       }
-      if (i % 10 != 9) cout << endl;
+      if (i % 10 != 0) cout << endl;
     }
     cout << endl;
     endMethod();
+  }
+
+  /** For debugging purposes only **/
+  void printResponsibilities () {
+    if (Cluster::procId == 0) {
+      for (int i = 0; i < this->numResponsibilities; i++) {
+        cout << responsibilities[i].startIndex << ":" << 
+          responsibilities[i].startIndex + responsibilities[i].numElements - 1 <<
+          " by Node " << responsibilities[i].procId << endl;
+      }
+    }
   }
 };
 
