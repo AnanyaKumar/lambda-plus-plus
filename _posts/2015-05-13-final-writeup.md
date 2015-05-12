@@ -140,7 +140,7 @@ int knapsack (UberSequence< pair<int, int> > *items, int weight) {
     // Free the sequence we created
     delete bests;
   }
-  
+
   return money[weight];
 }
 ```
@@ -327,7 +327,7 @@ the array 4 times (admittedly for the sake for computing efficiently on the GPU)
 ## Results
 
 We have two categories of results to outline. The first of these deals with the
-performance of our parallel code with respect to our serial code. These results
+performance of our parallel code with respect to serial code. These results
 mostly serve to highlight the effectiveness of our approach (i.e., work
 balancing, etc.). The second category compares our parallel implementation to
 other parallel implementations, in particular Thrust for GPU-level parallelism
@@ -335,19 +335,30 @@ using a similar, functional programming style.
 
 ### Effectiveness of Approach
 
-<!--
-  TODO
-
-  Ananya, feel free to rearrange these images and add analysis of the approach.
-  You might be able to copy a bit from `index.md` with respect to the analysis
-  of these graphs.
-  -->
+Results for Mandelbrot benchmarks for difference Sequence algorithms is shown below. 
+In particular,
+note that UberSequence (with work balancing) is much faster than the naive parallel
+implementation ParallelSequence.
 
 [![][ghc-speedup]][ghc-speedup]
 
-[![][ghc-speedup-wb]][ghc-speedup-wb]
+The graph below shows how the performance for UberSequence on Mandelbrot varies with
+the number of LateDays nodes. A value of 1 on the y-axis means that the sequence
+ran at the same speed as the serial implementation of the sequence library. 
+As  we increase the number of execution contexts, we still manage to get
+near-optimal speedups!
 
 [![][latedays-speedup-mandelbrot]][latedays-speedup-mandelbrot]
+
+Below is the same analysis for `paren_match`, an algorithm that computes whether
+a sequence of parentheses is well-matched.
+Fast Serial is an optimized (non-parallel) sequential code that does not use
+the sequence abstraction.
+Fast Serial does not do the same computations, and avoids the overhead of the sequence
+library. As such, it performs better than any of the sequence libraries on a single
+node.
+However, UberSequence scales pretty well across nodes. 
+The speedup is almost linear up to 8 LateDays nodes (each having 2 CPUs with 6 cores). 
 
 [![][latedays-speedup-paren]][latedays-speedup-paren]
 
