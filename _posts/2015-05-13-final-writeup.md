@@ -52,7 +52,9 @@ proportion of serial work load (i.e., they have logarithmic span).
 
 ## Implementation
 
-Arbitrary Lambda Functions: All code outside of calls to the Sequence library is executed 
+Arbitrary Lambda Functions
+
+All code outside of calls to the Sequence library is executed 
 identically by every node in the MPI cluster. 
 This allows the Sequence library to operate on generic 
 functions (even those that require "variable captures"), since every node has access 
@@ -64,7 +66,7 @@ we ensure that all data outside of calls to the Sequence library is the same acr
 The nodes resume executing code outside of the Sequence library identically (the 
 execution paths converge).
 
-Advantages: The above 'symmetric' architecture allows 
+A huge advantage is that the above 'symmetric' architecture allows 
 for arbitrary lambda functions. 
 Most other architectures require communicating
 lambda functions across nodes. 
@@ -87,10 +89,61 @@ architecture, and we are not completely sure if it is feasible.
 This is left as future work. We think most workloads can survive without
 having to create multi-level sequences.
 
-Work Balancing: The naive way to distribute the sequence across the cluster is to
-partition the data evenly.
+Work Balancing
+
+The naive way to distribute the sequence across the cluster is to
+partition the data evenly, as shown below.
 
 [![][simple-load-distro]][simple-load-distro]
+
+However, in many workloads, certain parts of the sequence require a lot more compute than
+other parts of the sequence. 
+For example, if mapping a function on the above sequence
+required a lot more compute time on the last 2 elements, Nodes 1 and 2
+would finish their computations long before Node 3.
+In effect, Node 3 would be a bottleneck.
+
+Our work distribution avoids this problem. First, we partition the sequence into many more
+chunks than there are nodes (in current implementation, roughly 5 times as many).
+Each node gets an equal number of these small chunks. However, the allocation of chunks
+to nodes is random.
+
+our-load-distro
+[![][our-load-distro]][our-load-distro]
+
+If the number of nodes is large, this scheme balances load well for most real life
+workloads. 
+There are cases where our work allocation method will not perform optimally,
+for example if a single chunk in a sequence requires much more compute than the rest
+of the sequence. 
+In these cases, a work stealing or dynamic chunking approach might be
+better. 
+But for most real life workloads, we think our method achieves effective
+load balancing without incurring the large overhead of dynamic schemes.
+
+Profile Cluster
+
+In many clusters, some nodes are faster than other nodes. 
+This could be because the cluster is heteregenous, and some machines are better
+than other machines.
+Or it could be because a node is facing a temporary slowdown (possibly because
+other users are sharing the underlying machine).
+
+When the user initializes a Cluster, we profile each node by running loops of 
+arithmetic operations and memory allocations.
+The results for each node is shared across the cluster.
+The sequence library then distributes data proportional to the nodes' performance.
+For example, suppose we have a 2 node setup, node 1 takes 0.2 seconds to run the 
+profile code, and node 2 takes 0.6 seconds to run the profile code.
+If the user initializes a Sequence of size 100, 75 of the elements will go to
+node 1, and 25% of the elements fo to node 2.
+
+This feature is currently experimental. We have not yet tested the sequence
+on a cluster with different machines. However, theoretically this is a very
+powerful technique to balance load in real life clusters.
+
+
+
 
 <!--
   TODO
@@ -196,6 +249,7 @@ both had a great time working on Lambda++ and are proud of how it turned out!
 
 <!-- Images -->
 [simple-load-distro]: {{ "/img/simple-load-distro.png" | prepend: site.baseurl }}
+[our-load-distro]: {{ "/img/our-load-distro.png" | prepend: site.baseurl }}
 [ghc-speedup]: {{ "/img/ghc-speedup.png" | prepend: site.baseurl }}
 [ghc-speedup-wb]: {{ "/img/ghc-speedup-wb.png" | prepend: site.baseurl }}
 [latedays-speedup-mandelbrot]: {{ "/img/latedays-speedup-mandelbrot.png" | prepend: site.baseurl }}
