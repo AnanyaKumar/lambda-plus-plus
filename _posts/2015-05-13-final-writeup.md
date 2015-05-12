@@ -15,21 +15,20 @@ within the cluster.
 
 ## Abstraction
 
-Lambda++ presents two abstractions. The Cluster abstraction is used to initialize
-and tear down a cluster.
+Lambda++ presents two abstractions. The Cluster abstraction is used to
+initialize and tear down a cluster.
 
-The core of the library, the `Sequence` abstraction, is basically an ordered list
-of elements that supports operations like map, reduce, and scan.
-All of these operations take in arbitrary functions (thanks to C++11's new
-syntax for lambda functions) and work with arbitrary types (due to C++'s
-template system).
+The core of the library, the `Sequence` abstraction, is basically an ordered
+list of elements that supports operations like map, reduce, and scan.  All of
+these operations take in arbitrary functions (thanks to C++11's new syntax for
+lambda functions) and work with arbitrary types (due to C++'s template system).
 
-More precisely, the `Sequence` abstraction is inspired by 15-210's `SEQUENCE` 
-signature for SML. The `Sequence` class declares a number of higher order functions 
-which allow users of the library to express their algorithms in a way that is both 
-expressive for the algorithm designer as well as easily parallelizable by the library 
-authors. For the purposes of our analyses, we implemented a subset of the `SEQUENCE` 
-functions, including
+More precisely, the `Sequence` abstraction is inspired by 15-210's `SEQUENCE`
+signature for SML. The `Sequence` class declares a number of higher order
+functions which allow users of the library to express their algorithms in a way
+that is both expressive for the algorithm designer as well as easily
+parallelizable by the library authors. For the purposes of our analyses, we
+implemented a subset of the `SEQUENCE` functions, including
 
 - `map`
 - `reduce`
@@ -144,97 +143,86 @@ int knapsack (UberSequence< pair<int, int> > *items, int weight) {
 }
 ```
 
-The knapsack problem is relevant to many real world applications (see 
-http://en.wikipedia.org/wiki/Knapsack_problem#Applications),
-including optimization problems of finding the least wasteful way
-to cut materials.
+The knapsack problem is relevant to [many real world applications][knapsack]
+including optimization problems of finding the least wasteful way to cut
+materials.
 
 ## Implementation
 
-**Arbitrary Lambda Functions**
+### Arbitrary Lambda Functions
 
-All code outside of calls to the Sequence library is executed 
-identically by every node in the MPI cluster. 
-This allows the Sequence library to operate on generic 
-functions (even those that require "variable captures"), since every node has access 
-to the same data. 
-When a Sequence library method is called, the nodes operate on different parts of 
-the sequence, and so the execution paths (of nodes) diverge. 
-At the end of the Sequence library call, 
-we ensure that all data outside of calls to the Sequence library is the same across nodes. 
-The nodes resume executing code outside of the Sequence library identically (the 
+All code outside of calls to the Sequence library is executed identically by
+every node in the MPI cluster.  This allows the Sequence library to operate on
+generic functions (even those that require "variable captures"), since every
+node has access to the same data.  When a Sequence library method is called, the
+nodes operate on different parts of the sequence, and so the execution paths (of
+nodes) diverge.  At the end of the Sequence library call, we ensure that all
+data outside of calls to the Sequence library is the same across nodes.  The
+nodes resume executing code outside of the Sequence library identically (the
 execution paths converge).
 
-A huge advantage is that the above 'symmetric' architecture allows 
-for arbitrary lambda functions. 
-Most other architectures require communicating
-lambda functions across nodes. 
-Since C++ is a compiled language, it's almost impossible
-to send arbitrary lambda functions from one node to another. 
-One possible 'hack' is to
-bitwise copy the lambda function, but the resulting code would not be portable (since
-the way the lambda function is stored is implementation defined). 
+A huge advantage is that the above 'symmetric' architecture allows for arbitrary
+lambda functions.  Most other architectures require communicating lambda
+functions across nodes.  Since C++ is a compiled language, it's almost
+impossible to send arbitrary lambda functions from one node to another.  One
+possible 'hack' is to bitwise copy the lambda function, but the resulting code
+would not be portable (since the way the lambda function is stored is
+implementation defined).
 
-Disadvantages: Since code outside of the Sequence library is duplicated, the setup could be
-energy inefficient. 
-However, this issue can be resolved if the user uses our abstractions only in the parts 
-of the workload he wishes to parallelize.
-Another issue is that code outside of the Sequence library must be deterministic (e.g. the
-user can't ge the system time, or call random number generators). 
-This can be solved by
-providing the user with libraries for such use cases.
-A bigger issue is that we were not able to implement Sequences of sequences using this
-architecture, and we are not completely sure if it is feasible.
-This is left as future work. We think most workloads can survive without
-having to create multi-level sequences.
+Disadvantages: Since code outside of the Sequence library is duplicated, the
+setup could be energy inefficient.  However, this issue can be resolved if the
+user uses our abstractions only in the parts of the workload he wishes to
+parallelize.  Another issue is that code outside of the Sequence library must be
+deterministic (e.g. the user can't get the system time, or call random number
+generators).  This can be solved by providing the user with libraries for such
+use cases.  A bigger issue is that we were not able to implement Sequences of
+sequences using this architecture, and we are not completely sure if it is
+feasible.  This is left as future work. We think most workloads can survive
+without having to create multi-level sequences.
 
-**Work Balancing**
+### Work Balancing
 
 The naive way to distribute the sequence across the cluster is to
 partition the data evenly, as shown below.
 
 [![][simple-load-distro]][simple-load-distro]
 
-However, in many workloads, certain parts of the sequence require a lot more compute than
-other parts of the sequence. 
-For example, if mapping a function on the above sequence
-required a lot more compute time on the last 2 elements, Nodes 1 and 2
-would finish their computations long before Node 3.
-In effect, Node 3 would be a bottleneck.
+However, in many workloads, certain parts of the sequence require a lot more
+compute than other parts of the sequence.  For example, if mapping a function on
+the above sequence required a lot more compute time on the last 2 elements,
+Nodes 1 and 2 would finish their computations long before Node 3.  In effect,
+Node 3 would be a bottleneck.
 
-Our work distribution avoids this problem. First, we partition the sequence into many more
-chunks than there are nodes (in current implementation, roughly 5 times as many).
-Each node gets an equal number of these small chunks. However, the allocation of chunks
-to nodes is random.
+Our work distribution avoids this problem. First, we partition the sequence into
+many more chunks than there are nodes (in current implementation, roughly 5
+times as many).  Each node gets an equal number of these small chunks. However,
+the allocation of chunks to nodes is random.
 
 [![][our-load-distro]][our-load-distro]
 
-If the number of nodes is large, this scheme balances load well for most real life
-workloads. 
-There are cases where our work allocation method will not perform optimally,
-for example if a single chunk in a sequence requires much more compute than the rest
-of the sequence. 
-In these cases, a work stealing or dynamic chunking approach might be
-better. 
-But for most real life workloads, we think our method achieves effective
-load balancing without incurring the large overhead of dynamic schemes.
+If the number of nodes is large, this scheme balances load well for most real
+life workloads.  There are cases where our work allocation method will not
+perform optimally, for example if a single chunk in a sequence requires much
+more compute than the rest of the sequence.  In these cases, a work stealing or
+dynamic chunking approach might be better.  But for most real life workloads, we
+think our method achieves effective load balancing without incurring the large
+overhead of dynamic schemes.
 
-**Profile Cluster**
+### Cluster Profiling
 
-In many clusters, some nodes are faster than other nodes. 
-This could be because the cluster is heteregenous, and some machines are better
-than other machines.
+In many clusters, some nodes are faster than other nodes.  This could be because
+the cluster is heterogeneous, and some machines are better than other machines.
 Or it could be because a node is facing a temporary slowdown (possibly because
 other users are sharing the underlying machine).
 
-When the user initializes a Cluster, we profile each node by running loops of 
-arithmetic operations and memory allocations.
-The results for each node is shared across the cluster.
-The sequence library then distributes data proportional to the nodes' performance.
-For example, suppose we have a 2 node setup, node 1 takes 0.2 seconds to run the 
-profile code, and node 2 takes 0.6 seconds to run the profile code.
-If the user initializes a Sequence of size 100, 75 of the elements will go to
-node 1, and 25% of the elements fo to node 2. The figure below illustrates this.
+When the user initializes a Cluster, we profile each node by running loops of
+arithmetic operations and memory allocations.  The results for each node is
+shared across the cluster.  The sequence library then distributes data
+proportional to the nodes' performance.  For example, suppose we have a 2 node
+setup, node 1 takes 0.2 seconds to run the profile code, and node 2 takes 0.6
+seconds to run the profile code.  If the user initializes a Sequence of size
+100, 75 of the elements will go to node 1, and 25% of the elements fo to node 2.
+The figure below illustrates this.
 
 [![][profile-cluster]][profile-cluster]
 
@@ -242,87 +230,81 @@ This feature is currently experimental. We have not yet tested the sequence
 on a cluster with different machines. However, theoretically this is a very
 powerful technique to balance load in real life clusters.
 
-**MPI - OpenMP Hybrid Architecture**
+### MPI - OpenMP Hybrid Architecture
 
 We use MPI to communicate between nodes, but within a node we spawn openMP
-threads to perform computations. The number of openMP threads we spawn
-is typically 2 times the number of cores, so that each thread maps to
-a unique hyperthreaded context.
-This is a common paradigm (for example, see http://openmp.org/sc13/HybridPP_Slides.pdf).
-The architecture is illustrated in the diagram below.
+threads to perform computations. The number of openMP threads we spawn is
+typically 2 times the number of cores, so that each thread maps to a unique
+hyperthreaded context.  This is a common paradigm (for example, see
+http://openmp.org/sc13/HybridPP_Slides.pdf).  The architecture is illustrated in
+the diagram below.
 
 [![][hybrid-computing]][hybrid-computing]
 
-Why MPI? First, many large clusters don't have shared memory. So using
-OpenMP would not be feasible (or could be very slow). 
-Even on clusters that support shared memory, MPI allows for a more fine grained control 
-of communication between nodes, and of where memory is allocated. This allows us to
-minimize communication between nodes.
+Why MPI? First, many large clusters don't have shared memory. So using OpenMP
+would not be feasible (or could be very slow).  Even on clusters that support
+shared memory, MPI allows for a more fine grained control of communication
+between nodes, and of where memory is allocated. This allows us to minimize
+communication between nodes.
 
-Why OpenMP? A single node usually has a fast shared memory architecture, which OpenMP
-is suited to.
-Using MPI would typically lead to a larger communication overhead, especially in
-broadcast functions like AllToAll, because we have more virtual nodes. 
-We observed this in our tests: a pure MPI architecture was not able to scale
-well beyond 8 6-core CPUs, while the hybrid implementation scaled well
-on up to 16 6-core CPUs (the maximum number tested).
+Why OpenMP? A single node usually has a fast shared memory architecture, which
+OpenMP is suited to.  Using MPI would typically lead to a larger communication
+overhead, especially in broadcast functions like AllToAll, because we have more
+virtual nodes.  We observed this in our tests: a pure MPI architecture was not
+able to scale well beyond 8 6-core CPUs, while the hybrid implementation scaled
+well on up to 16 6-core CPUs (the maximum number tested).
 
-**External Devices**
+### External Devices
 
-In our main website, and in an email to Kayvon, we mentioned that we will
-try our best to integrate the Xeon Phi into our library (although we
-mentioned that we will not guarantee this). 
-We spent many hours trying to integrate
-the Xeon Phi, but we were unsuccessful.
-The main issues were running a job that uses MPI and the Phi simultaneously,
-and offloading lambda functions to the Phi. Integrating the Phi
-would be very exciting, so we leave this for future work.
+In our main website, and in an email to Kayvon, we mentioned that we will try
+our best to integrate the Xeon Phi into our library (although we mentioned that
+we will not guarantee this).  We spent many hours trying to integrate the Xeon
+Phi, but we were unsuccessful.  The main issues were running a job that uses MPI
+and the Phi simultaneously, and offloading lambda functions to the Phi.
+Integrating the Phi would be very exciting, so we leave this for future work.
 
-**Map/Tabulate/Transform Implementation**
+### Map/Tabulate/Transform Implementation
 
-After the Sequence has been setup and allocated correctly, tabulate is a pretty easy
-function to implement. 
-Each nodes examines each chunk it is responsible for, and
-assigns the values specified by the tabulate function to each element in the chunk.
+After the Sequence has been setup and allocated correctly, tabulate is a pretty
+easy function to implement.  Each nodes examines each chunk it is responsible
+for, and assigns the values specified by the tabulate function to each element
+in the chunk.
 
-Implementations of Map and Transform are conceptually similar (though map requires
-copying a lot of data because we are producing a new sequence).
+Implementations of Map and Transform are conceptually similar (though map
+requires copying a lot of data because we are producing a new sequence).
 
-**Reduce/Scan Implementation**
+### Reduce/Scan Implementation
 
-We explain how reduce works using an example. Suppose we have a cluster of
-2 nodes. We allocate a sequence of size 16: (1, 2, 3, ..., 16). We chunk
-the sequence into 4 parts and distribute so that node 1 gets (1, 2, 3, 4)
-and (9, 10, 11, 12), and node 2 gets (5, 6, 7, 8) and (13, 14, 15, 16).
+We explain how reduce works using an example. Suppose we have a cluster of 2
+nodes. We allocate a sequence of size 16: (1, 2, 3, ..., 16). We chunk the
+sequence into 4 parts and distribute so that node 1 gets (1, 2, 3, 4) and (9,
+10, 11, 12), and node 2 gets (5, 6, 7, 8) and (13, 14, 15, 16).
 
-In the first stage of the reduce, each node performs a reduce on its own chunks. 
-Multiple threads work together to reduce each chunk. 
-At the end of this stage, each node has reduced values for each chunk it is
-responsible for.
-The diagram below illustrates this stage for Node 1.
+In the first stage of the reduce, each node performs a reduce on its own chunks.
+Multiple threads work together to reduce each chunk.  At the end of this stage,
+each node has reduced values for each chunk it is responsible for.  The diagram
+below illustrates this stage for Node 1.
 
 [![][reduce-stage-1]][reduce-stage-1]
 
-The nodes then collectively communicate the partial reduces for the chunks
-they were responsible for. 
-So each node has access to the reduced values for every chunk in the sequence. 
-The chunk values are sorted in linear time (possible because the number of
-nodes fits in an array).
-Each node reduces over the chunks to get a final reduced value.
-The diagram below illustrates this stage for Node 1.
+The nodes then collectively communicate the partial reduces for the chunks they
+were responsible for.  So each node has access to the reduced values for every
+chunk in the sequence.  The chunk values are sorted in linear time (possible
+because the number of nodes fits in an array).  Each node reduces over the
+chunks to get a final reduced value.  The diagram below illustrates this stage
+for Node 1.
 
 [![][reduce-stage-1]][reduce-stage-1]
 
-The first half of Scan and reduce are roughly the same. 
-However, after receiving partial reduces from the other nodes, Scan has to
-do some work applying the partial reduces to the chunks that the node 
-is reponsible for.
-Doing this efficiently is tricky, please see our code for more details.
-Of particular note is that our code runs though elements in the sequence twice, 
-and so would do about 2 times greater work than an optimal serial
-implementation of scan that runs on a single core.
-This is an improvement over the Scan code in homework 3, which runs through
-the array 4 times (admittedly for the sake for computing efficiently on the GPU).
+The first half of Scan and reduce are roughly the same.  However, after
+receiving partial reduces from the other nodes, Scan has to do some work
+applying the partial reduces to the chunks that the node is reponsible for.
+Doing this efficiently is tricky, please see our code for more details.  Of
+particular note is that our code runs though elements in the sequence twice, and
+so would do about 2 times greater work than an optimal serial implementation of
+scan that runs on a single core.  This is an improvement over the Scan code in
+homework 3, which runs through the array 4 times (admittedly for the sake for
+computing efficiently on the GPU).
 
 
 ## Results
@@ -336,53 +318,51 @@ using a similar, functional programming style.
 
 ### Effectiveness of Approach
 
-First, some definitions:
-SerialSequence is a completely serial implementation of the sequence abstraction
-(that does not have any MPI, openMP calls).
-ParallelSequence is our initial parallel implementation.
-UberSequence is our parallel implementation of the abstraction with the optimizations
-explained above.
+First, some definitions: SerialSequence is a completely serial implementation of
+the sequence abstraction (that does not have any MPI, openMP calls).
+ParallelSequence is our initial parallel implementation.  UberSequence is our
+parallel implementation of the abstraction with the optimizations explained
+above.
 
-Results for Mandelbrot benchmarks for difference Sequence algorithms are shown below. 
-The benchmark generates the Mandelbrot set in a 5,000 by 2,000 sized grid, going
-up to 256 iterations per grid cell.
+Results for Mandelbrot benchmarks for difference Sequence algorithms are shown
+below.  The benchmark generates the Mandelbrot set in a 5,000 by 2,000 sized
+grid, going up to 256 iterations per grid cell.
 
-In the first test, performance was measured on a 6-core GHC machine. The parallel
-implementations used up to 12 hyperthreaded execution contexts. Results are shown below:
-Notice, in particular, that UberSequence obtains pretty good speedup.
+In the first test, performance was measured on a 6-core GHC machine. The
+parallel implementations used up to 12 hyperthreaded execution contexts. Results
+are shown below: Notice, in particular, that UberSequence obtains pretty good
+speedup.
 
 [![][ghc-speedup]][ghc-speedup]
 
 The graph below shows how the speedup for UberSequence on Mandelbrot varies with
-the number of LateDays nodes.
-Each node has 2 CPUs * 6 cores * 2 hyperthreaded contexts.
-A value of 1 on the y-axis means that the sequence ran at the same speed 
-as SerialSequence. 
-As  we increase the number of execution contexts, we still manage to get
-near-optimal speedups!
+the number of LateDays nodes.  Each node has 2 CPUs * 6 cores * 2 hyperthreaded
+contexts.  A value of 1 on the y-axis means that the sequence ran at the same
+speed as SerialSequence.  As  we increase the number of execution contexts, we
+still manage to get near-optimal speedups!
 
 [![][latedays-speedup-mandelbrot]][latedays-speedup-mandelbrot]
 
 Below is the same analysis for `paren_match`, an algorithm that computes whether
-a sequence of parentheses is well-matched.
-We ran paren_match on a balanced sequence of parantheses with 200 million elements.
-Note that Fast Serial is an optimized (non-parallel) sequential code that does not use
-the sequence abstraction.
-Fast Serial does not do the same computations, and avoids the overhead of the sequence
-library. As such, it performs better than any of the sequence libraries on a single
-node.
+a sequence of parentheses is well-matched.  We ran `paren_match` on a balanced
+sequence of parantheses with 200 million elements.  Note that Fast Serial is an
+optimized (non-parallel) sequential code that does not use the sequence
+abstraction.  Fast Serial does not do the same computations, and avoids the
+overhead of the sequence library. As such, it performs better than any of the
+sequence libraries on a single node.
 
 Paren match is a much more difficult problem to have good speedups for, because
-it uses functions such as scan and reduce which are much more difficult to parallelize,
-and because the optimal solution is very different from the solution using the
-Sequence abstraction.
+it uses functions such as scan and reduce which are much more difficult to
+parallelize, and because the optimal solution is very different from the
+solution using the Sequence abstraction.
 
-UberSequence starts off slow, but it scales pretty well across nodes. 
-The speedup is almost linear up to 8 LateDays nodes.
+UberSequence starts off slow, but it scales pretty well across nodes.  The
+speedup is almost linear up to 8 LateDays nodes.
 
 [![][latedays-speedup-paren]][latedays-speedup-paren]
 
-We ran paren match on different instance sizes, and the results were roughly similar.
+We ran paren match on different instance sizes, and the results were roughly
+similar.
 
 
 ### Comparison to Thrust
@@ -392,48 +372,36 @@ achieve the optimal speedups on a cluster, we turned our attention to seeing how
 well it compared to alternative parallel frameworks, in particular CUDA
 Thrust.
 
-For all of our comparisons, we used 8 nodes on Latedays with the `UberSequence`
-implementation, and the NVIDIA GTX 780 (http://www.nvidia.com/gtx-700-graphics-cards/gtx-780/) 
-on ghc41.
+For all of our comparisons, we used 4 nodes on Latedays with the `UberSequence`
+implementation, and the [NVIDIA GTX 780][780] on ghc41.
 
-<!--
-  TODO
+We were dismayed to find out that Thrust on a single GPU performed better than
+Lambda++ on an entire cluster of computers. Here are the actual speedups:
 
-  Jake, add new graphs
-  -->
+[![][thrust-speedup]][thrust-speedup]
 
-In most of our tests, the Thrust code performed competitively with 
-Lambda++
+These tests are comparing the performance of both `mandelbrot` and `paren_match`
+for Thrust relative to the baseline performance of Lambda++. Higher bars
+indicate larger speedups. A couple of notes are relevant here.
 
-For example, in paren_match on 200 million elements, Lambda++ took
-an average of 45.1ms. Thrust took an average of 54ms.
+- A single NVIDIA GTX 780 is much cheaper and much more energy efficient than
+  8 Latedays nodes. It seems like the GPU is a much better choice than a cluster
+  for a sequence library.
 
-<!--
-  TODO
+- We did not vectorize (use SIMD) our code for Lambda++, which would probably
+  make Lambda++ significantly faster.
 
-  Jake, add actual values
-  -->
-
-A couple of notes are relevant here.
-
-A single NVIDIA GTX 780 is much cheaper and much more energy efficient than
-8 Latedays nodes. So it seems like the GPU is a much better choice
-than a cluster for a sequence library.
-
-However, we did not vectorize (use SIMD) our code for Lambda++, which
-would probably make Lambda++ significantly faster.
-
-Further, Thrust has been tuned by experts for optimal performance on GPUs.
-Our code for reduce and scan could very likely be optimized, considering
-that UberSequence does only about 2 times better than SerialSequence
-on paren match.
+- Thrust has been tuned by experts for optimal performance on GPUs.  Our code
+  for reduce and scan could very likely be optimized, considering that
+  UberSequence does only about 2 times better than SerialSequence on
+  `paren_match`.
 
 Additionally, GPUs cannot handle large data sets without expensive transfers of
 data back and forth from main memory. Lambda++ effectively gives you access to a
 very large memory buffer (combined from nodes across the cluster) to solve much
-bigger problem sets in-memory.
+bigger problem sizes in-memory.
 
-Lastly, Mandelbrot and paren match are pretty amenable to GPU parallelism. The
+Lastly, Mandelbrot and `paren_match` are pretty amenable to GPU parallelism. The
 compute tasks are symmetric, which means that a GPU would achieve high
 vector lane utilization. For more complex tasks, the GPU could easily be
 up to 30 times slower, but we don't expect to see similar slowdowns in
@@ -452,14 +420,8 @@ We referenced a number of resources while writing Lambda++, including
 - The Thrust documentation, available at
   - <https://thrust.github.io/doc/> and
   - <https://github.com/thrust/thrust/wiki>
-
-
-<!--
-  TODO
-
-  Ananya, you can add any references you used here. I don't have that much
-  Internet access right now, so I can't look up many references.
-  -->
+- Information about the [knapsack problem][knapsack]
+- Specs for [NVIDIA GTX 780][780]
 
 
 ## Effort Distribution
@@ -470,6 +432,8 @@ both had a great time working on Lambda++ and are proud of how it turned out!
 
 <!-- References -->
 [seq]: http://www.cs.cmu.edu/~15210/docs/sig/SEQUENCE.html
+[780]: http://www.nvidia.com/gtx-700-graphics-cards/gtx-780/
+[knapsack]: http://en.wikipedia.org/wiki/Knapsack_problem
 
 <!-- Images -->
 [simple-load-distro]: {{ "/img/simple-load-distro.png" | prepend: site.baseurl }}
