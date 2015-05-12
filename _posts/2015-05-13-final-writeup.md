@@ -152,7 +152,7 @@ to cut materials.
 
 ## Implementation
 
-Arbitrary Lambda Functions
+**Arbitrary Lambda Functions**
 
 All code outside of calls to the Sequence library is executed 
 identically by every node in the MPI cluster. 
@@ -189,7 +189,7 @@ architecture, and we are not completely sure if it is feasible.
 This is left as future work. We think most workloads can survive without
 having to create multi-level sequences.
 
-Work Balancing
+**Work Balancing**
 
 The naive way to distribute the sequence across the cluster is to
 partition the data evenly, as shown below.
@@ -220,7 +220,7 @@ better.
 But for most real life workloads, we think our method achieves effective
 load balancing without incurring the large overhead of dynamic schemes.
 
-Profile Cluster
+**Profile Cluster**
 
 In many clusters, some nodes are faster than other nodes. 
 This could be because the cluster is heteregenous, and some machines are better
@@ -243,7 +243,7 @@ This feature is currently experimental. We have not yet tested the sequence
 on a cluster with different machines. However, theoretically this is a very
 powerful technique to balance load in real life clusters.
 
-MPI - OpenMP Hybrid Architecture
+**MPI - OpenMP Hybrid Architecture**
 
 We use MPI to communicate between nodes, but within a node we spawn openMP
 threads to perform computations. 
@@ -266,7 +266,7 @@ We observed this in our tests: a pure MPI architecture was not able to scale
 well beyond 8 6-core CPUs, while the hybrid implementation scaled well
 on up to 16 6-core CPUs (the maximum number tested).
 
-External Devices
+**External Devices**
 
 In our main website, and in an email to Kayvon, we mentioned that we will
 try our best to integrate the Xeon Phi into our library (although we
@@ -277,7 +277,7 @@ The main issues were running a job that uses MPI and the Phi simultaneously,
 and offloading lambda functions to the Phi. Integrating the Phi
 would be very exciting, so we leave this for future work.
 
-Map/Tabulate/Transform Implementation
+**Map/Tabulate/Transform Implementation**
 
 After the Sequence has been setup and allocated correctly, tabulate is a pretty easy
 function to implement. 
@@ -287,7 +287,7 @@ assigns the values specified by the tabulate function to each element in the chu
 Implementations of Map and Transform are conceptually similar (though map requires
 copying a lot of data because we are producing a new sequence).
 
-Reduce/Scan Implementation
+**Reduce/Scan Implementation**
 
 We explain how reduce works using an example. Suppose we have a cluster of
 2 nodes. We allocate a sequence of size 16: (1, 2, 3, ..., 16). We chunk
