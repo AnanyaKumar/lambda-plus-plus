@@ -108,7 +108,6 @@ chunks than there are nodes (in current implementation, roughly 5 times as many)
 Each node gets an equal number of these small chunks. However, the allocation of chunks
 to nodes is random.
 
-our-load-distro
 [![][our-load-distro]][our-load-distro]
 
 If the number of nodes is large, this scheme balances load well for most real life
@@ -136,25 +135,92 @@ The sequence library then distributes data proportional to the nodes' performanc
 For example, suppose we have a 2 node setup, node 1 takes 0.2 seconds to run the 
 profile code, and node 2 takes 0.6 seconds to run the profile code.
 If the user initializes a Sequence of size 100, 75 of the elements will go to
-node 1, and 25% of the elements fo to node 2.
+node 1, and 25% of the elements fo to node 2. The figure below illustrates this.
+
+[![][profile-cluster]][profile-cluster]
 
 This feature is currently experimental. We have not yet tested the sequence
 on a cluster with different machines. However, theoretically this is a very
 powerful technique to balance load in real life clusters.
 
+MPI - OpenMP Hybrid Architecture
 
+We use MPI to communicate between nodes, but within a node we spawn openMP
+threads to perform computations. 
+This is a common paradigm (for example, see http://openmp.org/sc13/HybridPP_Slides.pdf).
+The architecture is illustrated in the diagram below.
 
+[![][hybrid-computing]][hybrid-computing]
 
-<!--
-  TODO
+Why MPI? First, many large clusters don't have shared memory. So using
+OpenMP would not be feasible (or could be very slow). 
+Even on clusters that support shared memory, MPI allows for a more fine grained control 
+of communication between nodes, and of where memory is allocated. This allows us to
+minimize communication between nodes.
 
-  Ananya, you can use this section to describe
-  - the MPI + OpenMP heterogenous parallelism,
-  - work balancing and randomization
-  - cluster profiling
-  -->
+Why OpenMP? A single node usually has a fast shared memory architecture, which OpenMP
+is suited to.
+Using MPI would typically lead to a larger communication overhead, especially in
+broadcast functions like AllToAll, because we have more virtual nodes. 
+We observed this in our tests: a pure MPI architecture was not able to scale
+well beyond 8 6-core CPUs, while the hybrid implementation scaled well
+on up to 16 6-core CPUs (the maximum number tested).
 
-TODO! Check back later :D
+External Devices
+
+In our main website, and in an email to Kayvon, we mentioned that we will
+try our best to integrate the Xeon Phi into our library (although we
+mentioned that we will not guarantee this). 
+We spent many hours trying to integrate
+the Xeon Phi, but we were unsuccessful.
+The main issues were running a job that uses MPI and the Phi simultaneously,
+and offloading lambda functions to the Phi. Integrating the Phi
+would be very exciting, so we leave this for future work.
+
+Map/Tabulate/Transform Implementation
+
+After the Sequence has been setup and allocated correctly, tabulate is a pretty easy
+function to implement. 
+Each nodes examines each chunk it is responsible for, and
+assigns the values specified by the tabulate function to each element in the chunk.
+
+Implementations of Map and Transform are conceptually similar (though map requires
+copying a lot of data because we are producing a new sequence).
+
+Reduce/Scan Implementation
+
+We explain how reduce works using an example. Suppose we have a cluster of
+2 nodes. We allocate a sequence of size 16: (1, 2, 3, ..., 16). We chunk
+the sequence into 4 parts and distribute so that node 1 gets (1, 2, 3, 4)
+and (9, 10, 11, 12), and node 2 gets (5, 6, 7, 8) and (13, 14, 15, 16).
+
+In the first stage of the reduce, each node performs a reduce on its own chunks. 
+Multiple threads work together to reduce each chunk. 
+At the end of this stage, each node has reduced values for each chunk it is
+responsible for.
+The diagram below illustrates this stage for Node 1.
+
+[![][reduce-stage-1]][reduce-stage-1]
+
+The nodes then collectively communicate the partial reduces for the chunks
+they were responsible for. 
+So each node has access to the reduced values for every chunk in the sequence. 
+The chunk values are sorted in linear time (possible because the number of
+nodes fits in an array).
+Each node reduces over the chunks to get a final reduced value.
+The diagram below illustrates this stage for Node 1.
+
+[![][reduce-stage-1]][reduce-stage-1]
+
+The first half of Scan and reduce are roughly the same. 
+However, after receiving partial reduces from the other nodes, Scan has to
+do some work applying the scan to the chunks that the node is reponsible for.
+Doing this efficiently is tricky, please see our code for more details.
+Of particular note is that our code runs though elements in the sequence twice, 
+and so would do about 2 times greater work than an optimal serial
+implementation of scan that runs on a single core.
+This is an improvement over the Scan code in homework 3, which runs through
+the array 4 times (admittedly for the sake for computing efficiently on the GPU).
 
 
 ## Results
@@ -250,6 +316,10 @@ both had a great time working on Lambda++ and are proud of how it turned out!
 <!-- Images -->
 [simple-load-distro]: {{ "/img/simple-load-distro.png" | prepend: site.baseurl }}
 [our-load-distro]: {{ "/img/our-load-distro.png" | prepend: site.baseurl }}
+[profile-cluster]: {{ "/img/profile-cluster.png" | prepend: site.baseurl }}
+[hybrid-computing]: {{ "/img/hybrid-computing.png" | prepend: site.baseurl }}
+[reduce-stage-1]: {{ "/img/reduce-stage-1.png" | prepend: site.baseurl }}
+[reduce-stage-2]: {{ "/img/reduce-stage-2.png" | prepend: site.baseurl }}
 [ghc-speedup]: {{ "/img/ghc-speedup.png" | prepend: site.baseurl }}
 [ghc-speedup-wb]: {{ "/img/ghc-speedup-wb.png" | prepend: site.baseurl }}
 [latedays-speedup-mandelbrot]: {{ "/img/latedays-speedup-mandelbrot.png" | prepend: site.baseurl }}
