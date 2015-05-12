@@ -13,22 +13,27 @@ including static cluster profiling, work balancing, and multi-level parallelism
 within the cluster.
 
 
-## Background
+## Abstraction
 
-To implement Lambda++, we wrap a vector in an abstraction we call the `Sequence`
-class, directly inspired by 15-210's `SEQUENCE` signature for SML. The
-`Sequence` class (as the `SEQUENCE` signature before it) declares a number of
-higher order functions which allow users of the library to express their
-algorithms in a way that is both expressive for the algorithm designer as well
-as easily parallelizable by the library author. For the purposes of our
-analyses, we implemented a subset of the `SEQUENCE` functions, including
+Lambda++ presents two abstractions. The Cluster abstraction is used to initialize
+and tear down a cluster.
+
+The core of the library, the `Sequence` abstraction, is basically an ordered list
+of elements that supports operations like map, reduce, and scan.
+
+More precisely, the `Sequence` abstraction is inspired by 15-210's `SEQUENCE` 
+signature for SML. The `Sequence` class declares a number of higher order functions 
+which allow users of the library to express their algorithms in a way that is both 
+expressive for the algorithm designer as well as easily parallelizable by the library 
+authors. For the purposes of our analyses, we implemented a subset of the `SEQUENCE` 
+functions, including
 
 - `map`
 - `reduce`
 - `scan`
 - `tabulate`, implemented as a C++ constructor
 
-as well as
+as well as 3 additional functions not in the 15-210 `SEQUENCE` signature:
 
 - `transform`, an in-place `map`
 - `get` and `set`, which load and modify (respectively) the value at an index
@@ -45,7 +50,40 @@ approach with `reduce` and `scan`, though these functions have a larger
 proportion of serial work load (i.e., they have logarithmic span).
 
 
-## Approach
+## Implementation
+
+Arbitrary Lambda Functions: All code outside of calls to the Sequence library is executed 
+identically by every node in the MPI cluster. 
+This allows the Sequence library to operate on generic 
+functions (even those that require "variable captures"), since every node has access 
+to the same data. 
+When a Sequence library method is called, the nodes operate on different parts of 
+the sequence, and so the execution paths (of nodes) diverge. 
+At the end of the Sequence library call, 
+we ensure that all data outside of calls to the Sequence library is the same across nodes. 
+The nodes resume executing code outside of the Sequence library identically (the 
+execution paths converge).
+
+Advantages: The huge advantage of the above 'symmetric' architecture is that it allows 
+for arbitrary lambda functions. Most other architectures would require communicating
+lambda functions across nodes. Since C++ is a compiled language, it's almost impossible
+to send arbitrary lambda functions from one node to another. One possible 'hack' is to
+bitwise copy the lambda function, but the resulting code would not be portable (since
+the way the lambda function is stored is implementation defined). 
+
+Disadvantages: Since code outside of the Sequence library is duplicated, the setup could be
+energy inefficient. 
+However, this issue can be resolved if the user uses our abstractions only in the parts 
+of the workload he wishes to parallelize.
+Another issue is that code outside of the Sequence library must be deterministic (e.g. the
+user can't ge the system time, or call random number generators). 
+This can be solved by
+providing the user with libraries for such use cases.
+A bigger issue is that we were not able to implement Sequences of sequences using this
+architecture. 
+This is left as future work. We think most workloads can survive without
+having to create multi-level sequences.
+
 
 <!--
   TODO
