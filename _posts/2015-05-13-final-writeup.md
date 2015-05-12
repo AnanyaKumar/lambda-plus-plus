@@ -20,6 +20,9 @@ and tear down a cluster.
 
 The core of the library, the `Sequence` abstraction, is basically an ordered list
 of elements that supports operations like map, reduce, and scan.
+All of these operations take in arbitrary functions (thanks to C++11's new
+syntax for lambda functions) and work with arbitrary types (due to C++'s
+template system).
 
 More precisely, the `Sequence` abstraction is inspired by 15-210's `SEQUENCE` 
 signature for SML. The `Sequence` class declares a number of higher order functions 
@@ -37,10 +40,6 @@ as well as 3 additional functions not in the 15-210 `SEQUENCE` signature:
 
 - `transform`, an in-place `map`
 - `get` and `set`, which load and modify (respectively) the value at an index
-
-All of these operations take in arbitrary functions (thanks to C++11's new
-syntax for lambda functions) and work with arbitrary types (due to C++'s
-template system).
 
 Operations like `map`, `tabulate`, and `transform` are completely data parallel.
 However since they take in arbitrary functions, it's possible for the workers to
@@ -246,7 +245,9 @@ powerful technique to balance load in real life clusters.
 **MPI - OpenMP Hybrid Architecture**
 
 We use MPI to communicate between nodes, but within a node we spawn openMP
-threads to perform computations. 
+threads to perform computations. The number of openMP threads we spawn
+is typically 2 times the number of cores, so that each thread maps to
+a unique hyperthreaded context.
 This is a common paradigm (for example, see http://openmp.org/sc13/HybridPP_Slides.pdf).
 The architecture is illustrated in the diagram below.
 
@@ -335,16 +336,28 @@ using a similar, functional programming style.
 
 ### Effectiveness of Approach
 
-Results for Mandelbrot benchmarks for difference Sequence algorithms is shown below. 
-In particular,
-note that UberSequence (with work balancing) is much faster than the naive parallel
-implementation ParallelSequence.
+First, some definitions:
+SerialSequence is a completely serial implementation of the sequence abstraction
+(that does not have any MPI, openMP calls).
+ParallelSequence is our initial parallel implementation.
+UberSequence is our parallel implementation of the abstraction with the optimizations
+explained above.
+
+Results for Mandelbrot benchmarks for difference Sequence algorithms are shown below. 
+The benchmark generates the Mandelbrot set in a 5,000 by 2,000 sized grid, going
+up to 256 iterations per grid cell.
+
+In the first test, performance was measured on a 6-core GHC machine. The parallel
+implementations used up to 12 hyperthreaded execution contexts. Results are shown below:
+Notice, in particular, that UberSequence obtains pretty good speedup.
 
 [![][ghc-speedup]][ghc-speedup]
 
-The graph below shows how the performance for UberSequence on Mandelbrot varies with
-the number of LateDays nodes. A value of 1 on the y-axis means that the sequence
-ran at the same speed as the serial implementation of the sequence library. 
+The graph below shows how the speedup for UberSequence on Mandelbrot varies with
+the number of LateDays nodes.
+Each node has 2 CPUs * 6 cores * 2 hyperthreaded contexts.
+A value of 1 on the y-axis means that the sequence ran at the same speed 
+as SerialSequence. 
 As  we increase the number of execution contexts, we still manage to get
 near-optimal speedups!
 
@@ -352,49 +365,82 @@ near-optimal speedups!
 
 Below is the same analysis for `paren_match`, an algorithm that computes whether
 a sequence of parentheses is well-matched.
-Fast Serial is an optimized (non-parallel) sequential code that does not use
+We ran paren_match on a balanced sequence of parantheses with 200 million elements.
+Note that Fast Serial is an optimized (non-parallel) sequential code that does not use
 the sequence abstraction.
 Fast Serial does not do the same computations, and avoids the overhead of the sequence
 library. As such, it performs better than any of the sequence libraries on a single
 node.
-However, UberSequence scales pretty well across nodes. 
-The speedup is almost linear up to 8 LateDays nodes (each having 2 CPUs with 6 cores). 
+
+Paren match is a much more difficult problem to have good speedups for, because
+it uses functions such as scan and reduce which are much more difficult to parallelize,
+and because the optimal solution is very different from the solution using the
+Sequence abstraction.
+
+UberSequence starts off slow, but it scales pretty well across nodes. 
+The speedup is almost linear up to 8 LateDays nodes.
 
 [![][latedays-speedup-paren]][latedays-speedup-paren]
+
+We ran paren match on different instance sizes, and the results were roughly similar.
 
 
 ### Comparison to Thrust
 
 After determining that our approach was effective at load balancing the work to
 achieve the optimal speedups on a cluster, we turned our attention to seeing how
-well it compared to alternative parallel frameworks, in particular CUDA and
+well it compared to alternative parallel frameworks, in particular CUDA
 Thrust.
 
-For all of our comparisons, we used 4 nodes on Latedays with the `UberSequence`
-implementation, and the NVIDIA GTX 780 on ghc41.
+For all of our comparisons, we used 8 nodes on Latedays with the `UberSequence`
+implementation, and the NVIDIA GTX 780 (http://www.nvidia.com/gtx-700-graphics-cards/gtx-780/) 
+on ghc41.
 
-Here's a chart comparing the results of both the `paren_match` and `mandelbrot`
-tests for each platform:
+<!--
+  TODO
 
-[![][thrust-speedup]][thrust-speedup]
+  Jake, add new graphs
+  -->
 
-In this graph, taller bars are better, as we're comparing the time a given
-implementation took to run vs. the time the `UberSequence` implementation took
-to run (explaining why `UberSequence` is always 1).
+In most of our tests, the Thrust code performed competitively with 
+Lambda++
 
-Notice that the Lambda++ implementation of `paren_match` was much faster than on
-the GPU, whereas the `mandelbrot` was close but Thrust won by a slight margin.
-We can attribute this to the fact that GPUs are really good at running SIMD,
-which is a pretty accurate description of what's going on in Mandelbrot
-generation. However, when it comes to reductions, Lambda++ is faster because it
-can move work around nodes as well as parallelize the reduction within a node
-for decreased communication overall.
+For example, in paren_match on 200 million elements, Lambda++ took
+an average of 45.1ms. Thrust took an average of 54ms.
 
-All in all, these results indicate that Lambda++ is a competitive choice for
-certain types of applications, though it's worthwhile to note that this is a
-cluster of 4 machines vs a single machine with a GPU. It will heavily depend on
-circumstances to determine whether this tradeoff is worth the potential
-performance benefit.
+<!--
+  TODO
+
+  Jake, add actual values
+  -->
+
+A couple of notes are relevant here.
+
+A single NVIDIA GTX 780 is much cheaper and much more energy efficient than
+8 Latedays nodes. So it seems like the GPU is a much better choice
+than a cluster for a sequence library.
+
+However, we did not vectorize (use SIMD) our code for Lambda++, which
+would probably make Lambda++ significantly faster.
+
+Further, Thrust has been tuned by experts for optimal performance on GPUs.
+Our code for reduce and scan could very likely be optimized, considering
+that UberSequence does only about 2 times better than SerialSequence
+on paren match.
+
+Additionally, GPUs cannot handle large data sets without expensive transfers of
+data back and forth from main memory. Lambda++ effectively gives you access to a
+very large memory buffer (combined from nodes across the cluster) to solve much
+bigger problem sets in-memory.
+
+Lastly, Mandelbrot and paren match are pretty amenable to GPU parallelism. The
+compute tasks are symmetric, which means that a GPU would achieve high
+vector lane utilization. For more complex tasks, the GPU could easily be
+up to 30 times slower, but we don't expect to see similar slowdowns in
+Lambda++.
+
+In the future, we would want to compare Lambda++ with other cluster level
+parallelization frameworks like Apache Spark.
 
 
 ## References
