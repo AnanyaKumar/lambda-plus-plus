@@ -49,6 +49,106 @@ balance the load across workers to equalize these divergences. We took a similar
 approach with `reduce` and `scan`, though these functions have a larger
 proportion of serial work load (i.e., they have logarithmic span).
 
+## Example Code
+
+Our library makes it easy to write parallel programs. Here's an example:
+
+```cpp
+/*
+ * Test if a sequence of 1's or -1's is "matched", treating
+ * 1's as open parens and -1's as close parens.
+ * (String parsing omitted)
+ */
+bool paren_match(Sequence<int> &seq) {
+  // C++11 lambda functions
+  auto plus = [](int a, int b) {
+    return a + b;
+  };
+  auto min = [](int a, int b) {
+    return a < b ? a : b;
+  };
+
+  // Compute a prefix sum
+  seq.scan(plus, 0);
+
+  int int_max = std::numeric_limits<int>::max();
+
+  // A well matched sequence has a net sum of 0 and
+  // never drops under zero
+  return seq.get(seq.length() - 1) == 0 &&
+         seq.reduce(min, int_max) >= 0;
+}
+```
+
+To launch the above program:
+
+```cpp
+#include "uber_sequence.h"
+#include "cluster.h"
+
+int main (int argc, char *argv) {
+  // Start the Cluster
+  Cluster::init(&argc, &argv);
+
+  // Make Parentheses sequence ()()()()()()...
+  auto generator = [](int i) { return i % 2 == 0 ? 1 : -1; }
+  int n = 200000000;
+  UberSequence<int> seq = UberSequence<int>(generator, n);
+
+  // Run paren match code, assert the sequence is well matched
+  assert(paren_match(seq));
+
+  // Destroy the Cluster
+  Cluster::close();
+
+  return 0;
+}
+```
+
+Here's a more complicated function that solves a classic dynamic programming
+problem: the knapsack problem. Suppose you have N items, each with a weight
+and a value. You have a knapsack that can hold up to weight W. Find
+the maximum value you can carry.
+
+```cpp
+int knapsack (UberSequence< pair<int, int> > *items, int weight) {
+  // Return the max of 2 integers
+  auto intMax = [](int x, int y) { return max(x, y); };
+
+  // money[i] stores the optimal value you can carry
+  // if you have a knapsack that holds up to weight i
+  int money[weight+1];
+
+  // If you can't hold any weight, you get 0 value
+  money[0] = 0;
+
+  // Classic DP solution that uses solutions to previous sub-problems
+  for (int i = 1; i <= weight; i++) {
+    money[i] = 0;
+
+    // For an item K, find the best value we can get if we use item
+    // K in a knapsack of weight i
+    std::function<int(pair<int, int>)> bestUsing = [&](pair<int, int> item) {
+      if (i - item.first < 0) return 0; // Out of bounds
+      return money[i - item.first] + item.second; // Use solution to sub-problem
+    };
+    Sequence<int> *bests = items->map(bestUsing);
+
+    // Get the best item to take in the knapsack of weight i
+    money[i] = bests->reduce(intMax, 0);
+
+    // Free the sequence we created
+    delete bests;
+  }
+  
+  return money[weight];
+}
+```
+
+The knapsack problem is relevant to many real world applications (see 
+http://en.wikipedia.org/wiki/Knapsack_problem#Applications),
+including optimization problems of finding the least wasteful way
+to cut materials.
 
 ## Implementation
 
@@ -214,7 +314,8 @@ The diagram below illustrates this stage for Node 1.
 
 The first half of Scan and reduce are roughly the same. 
 However, after receiving partial reduces from the other nodes, Scan has to
-do some work applying the scan to the chunks that the node is reponsible for.
+do some work applying the partial reduces to the chunks that the node 
+is reponsible for.
 Doing this efficiently is tricky, please see our code for more details.
 Of particular note is that our code runs though elements in the sequence twice, 
 and so would do about 2 times greater work than an optimal serial
