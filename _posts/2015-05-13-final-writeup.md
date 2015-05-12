@@ -64,10 +64,13 @@ we ensure that all data outside of calls to the Sequence library is the same acr
 The nodes resume executing code outside of the Sequence library identically (the 
 execution paths converge).
 
-Advantages: The huge advantage of the above 'symmetric' architecture is that it allows 
-for arbitrary lambda functions. Most other architectures would require communicating
-lambda functions across nodes. Since C++ is a compiled language, it's almost impossible
-to send arbitrary lambda functions from one node to another. One possible 'hack' is to
+Advantages: The above 'symmetric' architecture allows 
+for arbitrary lambda functions. 
+Most other architectures require communicating
+lambda functions across nodes. 
+Since C++ is a compiled language, it's almost impossible
+to send arbitrary lambda functions from one node to another. 
+One possible 'hack' is to
 bitwise copy the lambda function, but the resulting code would not be portable (since
 the way the lambda function is stored is implementation defined). 
 
@@ -80,10 +83,14 @@ user can't ge the system time, or call random number generators).
 This can be solved by
 providing the user with libraries for such use cases.
 A bigger issue is that we were not able to implement Sequences of sequences using this
-architecture. 
+architecture, and we are not completely sure if it is feasible.
 This is left as future work. We think most workloads can survive without
 having to create multi-level sequences.
 
+Work Balancing: The naive way to distribute the sequence across the cluster is to
+partition the data evenly.
+
+[![][simple-load-distro]][simple-load-distro]
 
 <!--
   TODO
@@ -188,6 +195,7 @@ both had a great time working on Lambda++ and are proud of how it turned out!
 [seq]: http://www.cs.cmu.edu/~15210/docs/sig/SEQUENCE.html
 
 <!-- Images -->
+[simple-load-distro]: {{ "/img/simple-load-distro.png" | prepend: site.baseurl }}
 [ghc-speedup]: {{ "/img/ghc-speedup.png" | prepend: site.baseurl }}
 [ghc-speedup-wb]: {{ "/img/ghc-speedup-wb.png" | prepend: site.baseurl }}
 [latedays-speedup-mandelbrot]: {{ "/img/latedays-speedup-mandelbrot.png" | prepend: site.baseurl }}
